@@ -33,60 +33,60 @@ declare function m:regression-log-linear($col as xs:string?,$query as cts:query?
   let $sr := cts:search(fn:collection($col),$query)
   let $results := map:map()
 
-    let $map := map:map()
-    let $_ := map:put($map,"sum0",0.0)
-    let $_ := map:put($map,"sum1",0.0)
-    let $_ := map:put($map,"sum2",0.0)
-    let $_ := map:put($map,"sum3",0.0)
-    let $count := fn:count($sr)
-    let $_ :=
-      for $doc in $sr
-      (:
-      let $n0 := xs:double(xdmp:unpath(xdmp:path($uri) || $xpathx))
-      let $n1 := xs:double(xdmp:unpath(xdmp:path($uri) || $xpathy))
-      :)
-      (:)
-      let $n0 := xs:double($doc/age) (: Using this here is much, much quicker. May want to pass in two functions to fetch this data rather than use unpath :)
-      let $n1 := xs:double($doc/weight)
-      :)
-      (:
-      let $n0 := xs:double(xdmp:with-namespaces($nsarray,xdmp:unpath("$doc" || $fieldpathx)))
-      let $n1 := xs:double(xdmp:with-namespaces($nsarray,xdmp:unpath("$doc" || $fieldpathy)))
-      :)
-      (:
-      let $n0 := xs:double(xdmp:with-namespaces($nsarray,xdmp:unpath("fn:doc(""" || fn:base-uri($doc) || """)" || $fieldpathx)))
-      let $n1 := xs:double(xdmp:with-namespaces($nsarray,xdmp:unpath("fn:doc(""" || fn:base-uri($doc) || """)" || $fieldpathy)))
+  let $map := map:map()
+  let $_ := map:put($map,"sum0",0.0)
+  let $_ := map:put($map,"sum1",0.0)
+  let $_ := map:put($map,"sum2",0.0)
+  let $_ := map:put($map,"sum3",0.0)
+  let $count := fn:count($sr)
+  let $_ :=
+    for $doc in $sr
+    (:
+    let $n0 := xs:double(xdmp:unpath(xdmp:path($uri) || $xpathx))
+    let $n1 := xs:double(xdmp:unpath(xdmp:path($uri) || $xpathy))
+    :)
+    (:)
+    let $n0 := xs:double($doc/age) (: Using this here is much, much quicker. May want to pass in two functions to fetch this data rather than use unpath :)
+    let $n1 := xs:double($doc/weight)
+    :)
+    (:
+    let $n0 := xs:double(xdmp:with-namespaces($nsarray,xdmp:unpath("$doc" || $fieldpathx)))
+    let $n1 := xs:double(xdmp:with-namespaces($nsarray,xdmp:unpath("$doc" || $fieldpathy)))
+    :)
+    (:
+    let $n0 := xs:double(xdmp:with-namespaces($nsarray,xdmp:unpath("fn:doc(""" || fn:base-uri($doc) || """)" || $fieldpathx)))
+    let $n1 := xs:double(xdmp:with-namespaces($nsarray,xdmp:unpath("fn:doc(""" || fn:base-uri($doc) || """)" || $fieldpathy)))
 
-:)
-(:
-let $n0 := xs:double($doc/node()[local-name(.)=$fieldpathx])
-let $n1 := xs:double($doc/node()[local-name(.)=$fieldpathy])
-:)
-let $fpx := xs:QName($fieldpathx)
-let $fpy := xs:QName($fieldpathy)
-let $n0 := xs:double($doc/*[node-name(.) eq $fpx])
-let $n1 := xs:double($doc/*[node-name(.) eq $fpy])
+    :)
+    (:
+    let $n0 := xs:double($doc/node()[local-name(.)=$fieldpathx])
+    let $n1 := xs:double($doc/node()[local-name(.)=$fieldpathy])
+    :)
+    let $fpx := xs:QName($fieldpathx)
+    let $fpy := xs:QName($fieldpathy)
+    let $n0 := xs:double($doc/*[node-name(.) eq $fpx])
+    let $n1 := xs:double($doc/*[node-name(.) eq $fpy])
 
-(:
-let $n0 := xs:double(xdmp:value("$doc" || $fieldpathx))
-let $n1 := xs:double(xdmp:value("$doc" || $fieldpathy))
-:)
-      (: TODO sanity check of $n0 too :)
-      let $logn0 := math:log($n0)
-      let $check :=
-        if (fn:not(fn:empty($n1))) then
-          (
-            map:put($map,"sum0",map:get($map,"sum0") + $logn0),
-            map:put($map,"sum1",map:get($map,"sum1") + ($n1 * $logn0)),
-            map:put($map,"sum2",map:get($map,"sum2") + $n1),
-            map:put($map,"sum3",map:get($map,"sum3") + ($logn0 * $logn0))
-          )
-        else ()
-      return ()
-    let $B := (($count * map:get($map,"sum1")) - (map:get($map,"sum2") * map:get($map,"sum0"))) div (($count * map:get($map,"sum3")) - (map:get($map,"sum0") * map:get($map,"sum0")))
-    let $A := (map:get($map,"sum2") - ($B * map:get($map,"sum0"))) div $count
-    let $str := "y = " || xs:string(math:floor($A * 1000) div 1000) || " + " || xs:string(math:floor($B * 1000) div 1000) || " ln(x)"
-    (: return ($count,$A,$B,$str) :)
+    (:
+    let $n0 := xs:double(xdmp:value("$doc" || $fieldpathx))
+    let $n1 := xs:double(xdmp:value("$doc" || $fieldpathy))
+    :)
+    (: TODO sanity check of $n0 too :)
+    let $logn0 := math:log($n0)
+    let $check :=
+      if (fn:not(fn:empty($n1))) then
+        (
+          map:put($map,"sum0",map:get($map,"sum0") + $logn0),
+          map:put($map,"sum1",map:get($map,"sum1") + ($n1 * $logn0)),
+          map:put($map,"sum2",map:get($map,"sum2") + $n1),
+          map:put($map,"sum3",map:get($map,"sum3") + ($logn0 * $logn0))
+        )
+      else ()
+    return ()
+  let $B := (($count * map:get($map,"sum1")) - (map:get($map,"sum2") * map:get($map,"sum0"))) div (($count * map:get($map,"sum3")) - (map:get($map,"sum0") * map:get($map,"sum0")))
+  let $A := (map:get($map,"sum2") - ($B * map:get($map,"sum0"))) div $count
+  let $str := "y = " || xs:string(math:floor($A * 1000) div 1000) || " + " || xs:string(math:floor($B * 1000) div 1000) || " ln(x)"
+  (: return ($count,$A,$B,$str) :)
   let $_ :=
     (
       map:put($results,"intercept",$A),

@@ -22,7 +22,7 @@ declare function m:nn-k-spawn($k as xs:positiveInteger,$col as xs:string,
   let $ticket := t:ticket-create()
   (: Set up function :)
   let $maxThreads := 4 (: TODO discover this from the current system itself :)
-  let $max := xdmp:estimate(cts:search($col,$treatedQuery))
+  let $max := xdmp:estimate(cts:search(fn:collection($col),$treatedQuery))
   let $size := math:ceil($max div $maxThreads)
   (: spawn function :)
   let $spawns :=
@@ -30,7 +30,7 @@ declare function m:nn-k-spawn($k as xs:positiveInteger,$col as xs:string,
     return xdmp:spawn-function(
       function() {(
         xdmp:log("findNearestNeighbourEuclideanSpawned:spawn-begin:" || xs:string($pid)),
-        xdmp:log(m:findKNearestNeighbourEuclideanBegin($ticket,$pid,$k,1 + ($pid * $size),$size,$max,$col,$treatedQuery,$untreatedQuery)),
+        xdmp:log(m:findKNearestNeighbourEuclideanBegin($ticket,$pid,$k,1 + ($pid * $size),$size,$max,$col,$treatedQuery,$untreatedQuery,$nsarray,$fieldpaths)),
         xdmp:log("findNearestNeighbourEuclideanSpawned:spawn-end:" || xs:string($pid))
       )}
     )
@@ -41,7 +41,7 @@ declare function m:nn-k-spawn($k as xs:positiveInteger,$col as xs:string,
 declare function m:findKNearestNeighbourEuclideanBegin($ticket as xs:string,$pid as xs:positiveInteger,
   $k as xs:positiveInteger,
   $start as xs:positiveInteger,$size as xs:positiveInteger,$max as xs:positiveInteger,
-  $col as xs:string,$treatedQuery as cts:query,$untreatedQuery as cts:query) {
+  $col as xs:string,$treatedQuery as cts:query,$untreatedQuery as cts:query,$nsarray as xs:string*,$fieldpaths as xs:string+) {
   if ($start gt $max) then () else
     let $calcIndex := $size + $start - 1
     let $lastIndex :=
@@ -97,7 +97,7 @@ declare function m:findKNearestNeighbourEuclideanRI($doc as node(),$col as xs:st
 
       ))
     ))
-  ,("unfiltered","score-logtf","unfaceted"))[1 to $max]
+  ,("unfiltered","score-logtf","unfaceted"))[1] (: TODO support up to $k matches :)
   return (fn:base-uri($res) (: ,cts:score($res) :) (:,xs:double($res/age):) )
 };
 
@@ -117,12 +117,12 @@ declare function m:findKNearestNeighbourEuclidean($doc as node(),$k as xs:positi
       $untreatedQuery
     ,("unfiltered","score-zero","unfaceted")) (: manual score calculation = no range indexes required :)
     let $score := math:pow(
-      fn:fold-left(function($z, $a) { $z * $a } ,
+      fn:fold-left(function($z, $a) { $z * $a } ,1,
         for $field in $fieldpaths
         let $fieldVal := xs:double(xdmp:with-namespaces($nsarray,"$res" || $field))
         let $docVal := xs:double(xdmp:with-namespaces($nsarray,"$doc" || $field))
         return 1.0 + (math:fabs($fieldVal - $docVal))
-      ), (-1.0 * fn:count($fields)))
+      ), (-1.0 * fn:count($fieldpaths)))
 
 (:
       ((1.0 + math:fabs( xs:double($res/age) - xs:double($doc/age))) *

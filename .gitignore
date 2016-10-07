@@ -1,3 +1,7 @@
 *.gml
 .DS_Store
 config
+*.o
+udfs/*/*.zip
+udfs/*/manifest.xml
+*.so

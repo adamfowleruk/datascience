@@ -3,7 +3,7 @@ xquery version "1.0-ml";
 module namespace m="http://marklogic.com/datascience/ticketing";
 
 declare function m:ticket-create() {
-  xs:string(xdmp:current-dateTime() || "-" || xdmp:random())
+  xs:string(fn:current-dateTime() || "-" || xdmp:random())
 };
 
 declare function m:ticket-progress($ticket as xs:string) as xs:double {
