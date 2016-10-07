@@ -43,7 +43,6 @@ Currently the following are available out of the box in MarkLogic Server, and ar
 The following are implemented on top of MarkLogic Server by this project:-
 
 - An XQuery mean brute force function
-- linear model built in for linear regression over range indexes
 - Log-linear regression in JavaScript, XQuery, and as a UDF
 - Logistic regression in XQuery and as a UDF
 - kNN in XQuery using search scoring to determine euclidean distance (requires range indexes)
