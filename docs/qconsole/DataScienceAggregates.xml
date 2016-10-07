@@ -1,0 +1,918 @@
+<export><workspace name="DataScienceAggregates"><query name="002 Range Aggregates" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">(: This query demonstrates the 9 OOTB search aggregation functions that operate over range indexes only :)
+(: For 100K records: avg-aggregate runs in approximately 0.0025 seconds. See "004 XQuery processing" example for a non-range index version :)
+(: For 500K records: avg-aggregate runs in approximately 0.0055 seconds. :)
+(: The below will be executed by doing SELECT AVG(age) FROM zoo :)
+
+(: Remove comments around just 1 of the below :)
+(: cts:count-aggregate( :)
+(: cts:sum-aggregate( :) (: See http://docs.marklogic.com/cts:sum-aggregate for command options :)
+(: cts:max( :)
+(: cts:min( :)
+cts:avg-aggregate( 
+(: cts:stddev( :) (: See http://docs.marklogic.com/cts:stddev for command options :)
+(: cts:stddev-p( :) (: See http://docs.marklogic.com/cts:stddev-p for command options :)
+(: cts:variance( :)
+(: cts:variance-p( :)
+  cts:element-reference(xs:QName("age"))
+)</query><query name="001 Generate Data" focus="false" active="true" content-source="as:4522790676736030483:" mode="javascript">// query
+declareUpdate();
+var names = ["Fred","Jane","Wilbur","Jacob","Archibold","Leo","Wendy","Kinder"];
+var animals = ["Tiger","Fish","Superhero","Human"];
+var family = ["Flintstones","Rubbles","Brady Bunch","Obamas","Einsteins","Flitwicks","Potters","Weasleys","Malfoys","Riddles"];
+for (var i = 400001;i &lt;= 500000;i++) {
+  xdmp.documentInsert("/zoo/animals/tiger" + i + ".json", {"name": names[i%8],"summary":"Big scary cat","age": 1 + ((i%1000)/10),"animal":animals[i%4],
+                                                           "family":family[i%10],"weight": 1 + (xdmp.random(20000) / 100.0),"iq": 1 + (xdmp.random(2000)/10) },
+                      xdmp.defaultPermissions(),"zoo");
+}
+</query><query name="004 XQuery processing" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">(: This query brute forces over all records in order to calculate a mean average :)
+(: This query DOES NOT require a range index on the weight field, but if a range index was configure it would be beneficial :)
+(: For 100K records: Query runs in less than 0.85 seconds with warm caches (improved version not executed on only 100k records) :)
+(: For 500K records: Query runs in approx 2.8 seconds with warm caches, or 1min27 seconds with cold caches :)
+(: The below could be exposed as SELECT AVG(weight) FROM zoo - with the data layer determining whether to use a range index or not :)
+
+(: Note also that this XQuery query runs against a set of JSON documents :)
+
+let $map := map:map()
+let $_ := map:put($map,"count",0)
+let $_ := map:put($map,"total",0)
+let $fullcount := xdmp:estimate(fn:collection("zoo"))
+let $_work :=
+  for $animal in fn:collection("zoo")
+  return (
+    (:map:put($map,"count",map:get($map,"count") + 1),:) (: we could reduce processing overhead by running xdmp:estimate(fn:collection("zoo")) instead of counting :)
+    map:put($map,"total",map:get($map,"total") + xs:double($animal/weight)) (: replace 'weight' with 'age' to see impact of a range index :)
+  )
+return (
+  "Count: ", (:map:get($map,"count"):) $fullcount,
+  "Total: ", map:get($map,"total"),
+  "Mean Average: ", map:get($map,"total") div $fullcount (: map:get($map,"count") :)
+)
+  </query><query name="005 Linear Regression" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+(: This sample runs linear regression using MarkLogic's built in UDF, over two fields (age, IQ) which have range indexes configured :)
+(: Returns intercept, coefficients, and rsquared :)
+(: For 500K records: runs in approx 0.040 seconds :)
+
+(: For a manual version of this that does not require range indexes, see 007x logistic regression (runs in 8.95 seconds) :)
+
+cts:linear-model(
+  (
+  
+    cts:element-reference(xs:QName("iq"), ("type=double")), (: x and y are inverted with linear-model compared to later comparison calculations :)
+    cts:element-reference(xs:QName("age"), ("type=double"))
+  ),
+  ("item-frequency"),
+  cts:collection-query("zoo")
+)
+(: The above could be exposed as SELECT LINEAR_REGRESSION(age,iq) FROM zoo :)</query><query name="006 Logistic Regression" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+(: We could write a UDF for this, but the below shows the long-hand method :)
+(: C# equivalent code here: http://crsouza.com/2010/02/logistic-regression-in-c/ :)
+(: The below could be exposed as SELECT LOGISTIC_REGRESSION(age,iq,epsilon,gamma) FROM zoo :)
+
+declare function local:norm($leftmap as map:map,$rightmap as map:map) as xs:double {
+  () (: TODO :)
+};
+
+declare function local:swap($leftmap as map:map,$rightmap as map:map) {
+  () (: TODO :)
+};
+
+declare function local:sigmoid($val as xs:double) as xs:double {
+  1.0 (: TODO :)
+};
+
+(: TODO fetch the tuples and put them in x, y :)
+
+let $v := map:map()
+let $results := cts:search(fn:collection("zoo"),cts:true-query()) 
+  (: TODO replace above true-query with cts:not-query for @excluded=true (statistician may choose to ignore some results) :)
+let $len := xdmp:estimate($results) (: 100 :) (: TODO replace with cts length of result set :)
+let $weightnew := map:map()
+let $weightold := map:map()
+let $temp := map:map()
+let $max := 2000
+let $epsilon := 0.0001
+let $gamma := 0.00005
+let $initialise :=
+  for $iter in (1 to $len)
+  return (
+    map:put($weightnew,xs:string($iter),0)
+    ,
+    map:put($weightold,xs:string($iter),0)
+  )
+let $calc :=
+  for $iter in (1 to $max)
+  return
+    (: TODO add condition here for 'break' out of while :)
+    
+    for $doc in $results
+    let $x_i := xs:double($doc/age)
+    let $x_j := xs:double($doc/iq)
+    let $x := 1 (: must be 1 as it's in the search results :)
+    
+    let $_ := 
+      for $k in (1 to $len)
+      let $_gradient := map:put($temp,"gradient",0)
+      let $_ :=
+        for $i in (1 to $len) (: 1 based :)
+        let $_zi := map:put($temp,"zi",0)
+        let $_ :=
+          for $j in (1 to $len) (: 1 based :)
+          let $_ := map:put($temp,"zi",map:get($weightold,xs:string($i)) * $x_i_j )
+          return ()
+        let $_ := map:put($temp,"gradient",map:get($y,xs:string($i)) * $x_i_k * 
+                    local:sigmoid(-1 * map:get($y,xs:string($i)) * map:get($temp,"zi")) )
+        return ()
+      let $_ := map:put($weightnew,$k,map:get($weightold,$k) + ($gamma * map:get($temp,"gradient")) )
+      return ()
+    let $dist := local:norm($weightnew,$weightold)
+    let $_ :=
+      if ($dist lt epsilon) then
+        (: BEST WEIGHT in weightnew - BREAK :)
+        ()
+      else
+        local:swap($weightold,$weightnew)
+    return ()
+  return $weightnew
+ 
+ 
+ 
+ (:
+    while (true) {
+        // update each weight
+        for (size_t k=0; k&lt;weight_new.size(); ++k) {
+            double gradient = 0;
+            for (size_t i=0; i&lt;x.size1(); ++i) {
+                double z_i = 0;
+                for (size_t j=0; j&lt;weight_old.size(); ++j) {
+#if 0
+                    cout &lt;&lt; "x(i,j):" &lt;&lt; x(i,j) &lt;&lt; endl;
+                    cout &lt;&lt; "weight_old(j):" &lt;&lt; weight_old(j) &lt;&lt; endl;
+#endif
+                    z_i += weight_old(j) * x(i,j);
+                }
+#if 0
+                cout &lt;&lt; "z_i:" &lt;&lt; z_i &lt;&lt; endl;
+                cout &lt;&lt; "y(i):" &lt;&lt; y(i) &lt;&lt; endl;
+                cout &lt;&lt; "x(i,k)" &lt;&lt; x(i, k) &lt;&lt; endl;
+                cout &lt;&lt; "sigmoid(-y(i) * z_i)" &lt;&lt; sigmoid(-y(i) * z_i) &lt;&lt; endl; 
+#endif
+                gradient = y(i) * x(i,k) * sigmoid(-y(i) * z_i);
+            }
+            weight_new(k) = weight_old(k) + gamma * gradient;
+        }
+
+        double dist = norm(weight_new, weight_old);
+        if (dist &lt; epsilon) {
+            cout &lt;&lt; "the best weight: " &lt;&lt; weight_new &lt;&lt; endl;
+            break;
+        }
+        else {
+            weight_old.swap(weight_new);
+           // weight_old = weight_new;
+        }
+
+        iter += 1;
+        if (iter &gt;= max_iters) {
+            cout &lt;&lt; "Reach max_iters=" &lt;&lt; max_iters &lt;&lt; endl;
+            break;
+        }
+        
+        cout &lt;&lt; "================================================" &lt;&lt; endl;
+        cout &lt;&lt; "The " &lt;&lt; iter &lt;&lt; " th iteration, weight:" &lt;&lt; endl;
+        cout &lt;&lt; weight_new &lt;&lt; endl &lt;&lt; endl;
+        cout &lt;&lt; "the diff between the old weight and the new weight: " &lt;&lt; dist &lt;&lt; endl &lt;&lt; endl;
+    }
+
+    cout &lt;&lt; "The best weight:" &lt;&lt; endl;
+    cout &lt;&lt; weight_new &lt;&lt; endl;
+    
+    :)</query><query name="009 K Nearest Neighbour" focus="false" active="true" content-source="as:4522790676736030483:" mode="javascript">
+
+// converted code from https://github.com/tonefolder/k-nearest-neighbor-js/blob/master/js/k-nearest.js
+
+	var KNN = {};
+	
+	KNN.Item = function (object) {
+		for (var key in object) {
+			if (object.hasOwnProperty(key)) {
+				this[key] = object[key];
+			}
+		}
+	};
+	
+	KNN.Item.prototype.measureDistances = function(area_range_obj, rooms_range_obj) {
+	
+		var rooms_range = rooms_range_obj.max - rooms_range_obj.min;
+		var area_range  = area_range_obj.max  - area_range_obj.min;
+
+		for (var i in this.neighbors) {
+			if (this.neighbors.hasOwnProperty(i)) {
+
+				var neighbor = this.neighbors[i];
+
+				var delta_rooms = neighbor.rooms - this.rooms;
+				delta_rooms = (delta_rooms) / rooms_range;
+
+				var delta_area  = neighbor.area  - this.area;
+				delta_area = (delta_area) / area_range;
+
+				neighbor.distance = Math.sqrt( delta_rooms*delta_rooms + delta_area*delta_area );
+			}
+		}
+	};
+	
+	KNN.Item.prototype.sortByDistance = function() {
+		this.neighbors.sort(function (a, b) {
+			return a.distance - b.distance;
+		});
+	};
+	
+	KNN.Item.prototype.guessType = function(k) {
+	
+		var types = {};
+
+		for (var i in this.neighbors.slice(0, k)) {
+		
+			var neighbor = this.neighbors[i];
+
+			if ( ! types[neighbor.type] ) {
+				types[neighbor.type] = 0;
+			}
+
+			types[neighbor.type] += 1;
+		}
+
+		var guess = {type: false, count: 0};
+		
+		for (var type in types) {
+			if (types[type] &gt; guess.count) {
+				guess.type = type;
+				guess.count = types[type];
+			}
+		}
+
+		this.guess = guess;
+
+		return types;
+	};
+
+	KNN.ItemList = function (k) {
+		this.nodes = [];
+		this.k = k;
+	};
+
+	KNN.ItemList.prototype.add = function (node) {
+		this.nodes.push(node);
+	};
+
+	KNN.ItemList.prototype.calculateRanges = function() {
+		this.areas = {min: 1000000, max: 0};
+		this.rooms = {min: 1000000, max: 0};
+		
+		for (var i in this.nodes) {
+			if (this.nodes.hasOwnProperty(i)) {
+			
+				if (this.nodes[i].rooms &lt; this.rooms.min) {
+					this.rooms.min = this.nodes[i].rooms;
+				}
+
+				if (this.nodes[i].rooms &gt; this.rooms.max) {
+					this.rooms.max = this.nodes[i].rooms;
+				}
+
+				if (this.nodes[i].area &lt; this.areas.min) {
+					this.areas.min = this.nodes[i].area;
+				}
+
+				if (this.nodes[i].area &gt; this.areas.max) {
+					this.areas.max = this.nodes[i].area;
+				}
+			}
+		}
+
+	};
+	
+	KNN.ItemList.prototype.determineUnknown = function () {
+
+		this.calculateRanges();
+
+		/*
+		 * Loop through our nodes and look for unknown types.
+		 */
+		for (var i in this.nodes) {
+		
+			if (this.nodes.hasOwnProperty(i)) {
+			
+				if ( ! this.nodes[i].type) {
+					/*
+					 * If the node is an unknown type, clone the nodes list and then measure distances.
+					 */
+					
+					/* Clone nodes */
+					this.nodes[i].neighbors = [];
+					
+					for (var j in this.nodes) {
+						if ( ! this.nodes[j].type)
+							continue;
+						this.nodes[i].neighbors.push( new KNN.Item(this.nodes[j]) );
+					}
+
+					/* Measure distances */
+					this.nodes[i].measureDistances(this.areas, this.rooms);
+
+					/* Sort by distance */
+					this.nodes[i].sortByDistance();
+
+					/* Guess type */
+					this.type = this.nodes[i].guessType(this.k);
+
+				}
+			}
+		}
+	};
+	/*
+	KNN.ItemList.prototype.draw = function(canvas_id) {
+	
+		var rooms_range = this.rooms.max - this.rooms.min;
+		var areas_range = this.areas.max - this.areas.min;
+
+		var canvas = document.getElementById(canvas_id);
+		var ctx = canvas.getContext("2d");
+		var width = 800;
+		var height = 800;
+		ctx.clearRect(0,0,width, height);
+
+		for (var i in this.nodes) {
+			
+			if (this.nodes.hasOwnProperty(i)) {
+			
+				ctx.save();
+
+				switch (this.nodes[i].type) {
+					case 'apartment':
+						ctx.fillStyle = 'red';
+						break;
+					case 'house':
+						ctx.fillStyle = 'green';
+						break;
+					case 'flat':
+						ctx.fillStyle = 'blue';
+						break;
+					default:
+						ctx.fillStyle = '#666666';
+				}
+
+				var padding = 40;
+				var x_shift_pct = (width  - padding) / width;
+				var y_shift_pct = (height - padding) / height;
+
+				var x = (this.nodes[i].rooms - this.rooms.min) * (width  / rooms_range) * x_shift_pct + (padding / 2);
+				var y = (this.nodes[i].area  - this.areas.min) * (height / areas_range) * y_shift_pct + (padding / 2);
+				y = Math.abs(y - height);
+
+
+				ctx.translate(x, y);
+				ctx.beginPath();
+				ctx.arc(0, 0, 5, 0, Math.PI*2, true);
+				ctx.fill();
+				ctx.closePath();
+				
+
+				/* 
+				 * Is this an unknown node? If so, draw the radius of influence
+				 /
+
+				if ( ! this.nodes[i].type ) {
+					switch (this.nodes[i].guess.type) {
+						case 'apartment':
+							ctx.strokeStyle = 'red';
+							break;
+						case 'house':
+							ctx.strokeStyle = 'green';
+							break;
+						case 'flat':
+							ctx.strokeStyle = 'blue';
+							break;
+						default:
+							ctx.strokeStyle = '#666666';
+					}
+
+					var radius = this.nodes[i].neighbors[this.k - 1].distance * width;
+					radius *= x_shift_pct;
+					ctx.beginPath();
+					ctx.arc(0, 0, radius, 0, Math.PI*2, true);
+					ctx.stroke();
+					ctx.closePath();
+
+				}
+
+				ctx.restore();
+			}
+		}
+
+	};
+  */
+
+
+
+var json =
+{ "data": [
+{"rooms": 1, "area": 350, "type": "apartment"},
+{"rooms": 2, "area": 300, "type": "apartment"},
+{"rooms": 3, "area": 300, "type": "apartment"},
+{"rooms": 4, "area": 250, "type": "apartment"},
+{"rooms": 4, "area": 1500, "type": "flat"},
+{"rooms": 4, "area": 900, "type": "apartment"},
+{"rooms": 5, "area": 1450, "type": "apartment"},
+{"rooms": 7, "area": 1850, "type": "house"},
+{"rooms": 7, "area": 1900, "type": "house"},
+{"rooms": 7, "area": 1200, "type": "house"},
+{"rooms": 8, "area": 1500, "type": "house"},
+{"rooms": 9, "area": 1300, "type": "house"},
+{"rooms": 8, "area": 1240, "type": "house"},
+{"rooms": 10, "area": 1700, "type": "house"},
+{"rooms": 9, "area": 1000, "type": "house"},
+{"rooms": 1, "area": 800, "type": "flat"},
+{"rooms": 3, "area": 900, "type": "flat"},
+{"rooms": 2, "area": 700, "type": "flat"},
+{"rooms": 1, "area": 900, "type": "flat"},
+{"rooms": 2, "area": 1150, "type": "flat"},
+{"rooms": 1, "area": 1000, "type": "flat"},
+{"rooms": 2, "area": 1200, "type": "flat"},
+{"rooms": 4, "area": 1300, "type": "flat"},
+{"rooms": 1, "area": 350, "type": "apartment"},
+{"rooms": 8, "area": 1900, "type": "house"},
+{"rooms": 3, "area": 300, "type": "apartment"},
+{"rooms": 4, "area": 250, "type": "apartment"},
+{"rooms": 4, "area": 600, "type": "apartment"},
+{"rooms": 4, "area": 400, "type": "apartment"},
+{"rooms": 5, "area": 450, "type": "apartment"},
+{"rooms": 7, "area": 1850, "type": "house"},
+{"rooms": 7, "area": 1900, "type": "house"},
+{"rooms": 7, "area": 1200, "type": "house"},
+{"rooms": 8, "area": 1500, "type": "house"},
+{"rooms": 9, "area": 1300, "type": "house"},
+{"rooms": 8, "area": 1240, "type": "house"},
+{"rooms": 10, "area": 1700, "type": "house"},
+{"rooms": 9, "area": 1000, "type": "house"},
+{"rooms": 1, "area": 800, "type": "flat"},
+{"rooms": 3, "area": 900, "type": "flat"},
+{"rooms": 2, "area": 700, "type": "flat"},
+{"rooms": 1, "area": 900, "type": "flat"},
+{"rooms": 2, "area": 1150, "type": "flat"},
+{"rooms": 1, "area": 1000, "type": "flat"},
+{"rooms": 2, "area": 1200, "type": "flat"},
+{"rooms": 1, "area": 1300, "type": "flat"}
+] };
+// Now use the library from ML search results...
+
+	var homes = new KNN.ItemList(0.1); // k value
+  for (var r = 0;r &lt; json.data.length;r++) {
+    homes.add( new KNN.Item(json.data[r]) );
+  }
+	
+		var random_rooms = Math.round( Math.random() * 10 );
+		var random_area = Math.round( Math.random() * 2000 );
+		
+		homes.add( new KNN.Item({rooms: random_rooms, area: random_area, type: false}) );
+		homes.determineUnknown();
+		//homes.draw("homes");
+
+</query><query name="000 Data by Collection" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+(: List each ML collection, and data present. Note: Some records are present in more than one named collection. :)
+for $col in cts:collections()
+return ($col,xdmp:estimate(fn:collection($col)))
+
+(:
+  Volumes used in testing:-
+  
+  addressbasepreium sample: 52475
+  mastermap topographic buildings: 502793
+  mastermap cartographic features: 20847
+  sample 'zoo' stats data: 500000
+  total: 1,076,115
+:)
+</query><query name="006a logarithmic regression" focus="true" active="true" content-source="as:4522790676736030483:" mode="javascript">// Example from: https://github.com/Tom-Alexander/regression-js/blob/master/src/regression.js
+
+// logML performs log regression over search results, not over data in memory
+// This should be more memory efficient, and require less RAM, allowing it to scale to millions of records
+// (and thus avoiding memory or cache exceeded errors)
+// For 500K records this executes in 2min 40 seconds
+//   *** For faster results see 006udf for a compiled, server side, C++ version
+var max = 30000;
+
+var logML = function(resultsVI,xpathx,xpathy) {
+                var sum = [0, 0, 0, 0], n = 0, results = [];
+  var A = 0, B = 0;
+  var string = "";
+  var n0 = 0,n1 = 0;
+  var i0 = 0;
+  var dataLength = resultsVI.count;
+  var log = "";
+  log += "dataLength: " + dataLength + "\n";
+
+                //for (len = dataLength; n &lt; len &amp;&amp; n &lt; max; n++) {
+                  //log += "n = " + n + " =&gt; ";
+                  
+  //var uri = fn.subsequence(resultsVI,n + 1,1).toArray()[0]; // TODO replace with callback version - in cts.search tab - example
+                  
+                   resultsVI.toArray().map(function(uri) {
+                  // do something
+                  
+                  //log += "uri: " + obj;
+                  //var uri = "" + obj;
+                  n0 = 1.0 * xdmp.unpath('fn:doc("' + uri + '")' + xpathx);
+                  n1 = 1.0 * xdmp.unpath('fn:doc("' + uri + '")' + xpathy);
+                  
+                  /*
+                  n0 = obj[xpathx];
+                  n1 = obj[xpathy];
+                  */
+                  //log += " n0: " + n0 + ", n1: " + n1 + "\n"; 
+                  if (n1 != null) {
+                    sum[0] += Math.log(n0);
+                    sum[1] += n1 * Math.log(n0);
+                    sum[2] += n1;
+                    sum[3] += Math.pow(Math.log(n0), 2);
+                  }
+                  //log += " sum0: " + sum[0] + ", sum1: " + sum[1] + ", sum2: " + sum[2] + ", sum3: " + sum[3] + "\n"; 
+                  
+                  
+                //} // end for loop
+                n++;
+                });
+
+                var B = (n * sum[1] - sum[2] * sum[0]) / (n * sum[3] - sum[0] * sum[0]);
+                var A = (sum[2] - B * sum[0]) / n;
+/*
+                for (var i = 0, len = dataLength; i &lt; len /* &amp;&amp; i &lt; 100; i++) {
+                  
+  var uri = fn.subsequence(resultsVI,i + 1,1).toArray()[0];
+                  i0 = xdmp.unpath('fn:doc("' + uri + '")' + xpathx);
+                    var coordinate = [i0, A + B * Math.log(i0)];
+                    results.push(coordinate);
+                    
+                }
+  */
+
+                var string = 'y = ' + Math.round(A*100) / 100 + ' + ' + Math.round(B*100) / 100 + ' ln(x)';
+
+                return {equation: [A, B], /*points: results, */ string: string,log: log};
+};
+var start = (new Date()).getTime(); 
+var output = logML(cts.uris("",null,cts.collectionQuery("zoo")),"/age","/weight"); // age vs weight. Also try age vs iq (both of these are range indexed fields)
+var end = (new Date()).getTime(); 
+JSON.stringify(output) + ", took: " + (end - start) + " ms";</query><query name="999 Test js xpath" focus="false" active="true" content-source="as:4522790676736030483:" mode="javascript">// query
+var doc = fn.doc("/zoo/animals/tiger388949.json");
+var xp1 = "/weight";
+xdmp.unpath('fn:doc("/zoo/animals/tiger388949.json")/weight');</query><query name="998 test data values" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">// query</query><query name="004j JS processing mean" focus="false" active="true" content-source="as:4522790676736030483:" mode="javascript">var total = 0;
+var count = 0;
+
+fn.collection("zoo").toArray().map(function(d) {
+  total += 1.0 * d.toObject().weight;
+  count++;
+});
+var start = (new Date()).getTime();                                
+var out = "Count: " + count +
+  ", Total: " + total +
+  ", Mean Average: " + total / count;
+var end = (new Date()).getTime();
+
+out + ", completed in " + (end-start) + " seconds";
+</query><query name="997 Install Aggregate" focus="false" active="true" content-source="6428764188427712716:0:Apps" mode="xquery">xquery version "1.0-ml";
+import module namespace plugin = "http://marklogic.com/extension/plugin" at "MarkLogic/plugin/plugin.xqy";
+plugin:install-from-zip("native", xdmp:document-get(
+"/mnt/hgfs/adamfowler/Documents/marklogic/git/mlcplusplus/release/samples/cpplnregudf/lnreg.zip")/node())</query><query name="006udf log regression" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+(: This executes a Logarithmic Regression over two fields. :)
+(: NOTE: Both fields must have a range index configured :)
+(: For 500K, result returns in 0.055 seconds :)
+(: This performance is possible thanks to range indexes, and the distributed nature of UDFs running distributed over a cluster/set of forests :)
+cts:aggregate(
+  "native/lnreg",
+  "lnreg",
+  (
+    cts:element-reference(xs:QName("age"),()),
+    cts:element-reference(xs:QName("iq"),())
+  ),  (), ("fragment-frequency"), 
+  cts:collection-query("zoo")
+)</query><query name="006x ln reg" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+(: Performs a logarithmic regression over two fields in our records :)
+(: Does not require a range index on any fields :)
+(: See the 'lnreg' UDF for an example with range indexed fields that executes in 0.055 seconds over 500K records :)
+(: For 500K records, takes 2M10 with cold caches, or 9 seconds with warm caches :)
+declare function local:logML($sr,$xpathx,$xpathy) {
+  let $map := map:map()
+  let $_ := map:put($map,"sum0",0.0)
+  let $_ := map:put($map,"sum1",0.0)
+  let $_ := map:put($map,"sum2",0.0)
+  let $_ := map:put($map,"sum3",0.0)
+  let $count := fn:count($sr)
+  let $_ :=
+    for $uri in $sr
+    (:
+    let $n0 := xs:double(xdmp:unpath(xdmp:path($uri) || $xpathx))
+    let $n1 := xs:double(xdmp:unpath(xdmp:path($uri) || $xpathy))
+    :)
+    let $n0 := xs:double($uri/age) (: Using this here is much, much quicker. May want to pass in two functions to fetch this data rather than use unpath :)
+    let $n1 := xs:double($uri/weight)
+    let $logn0 := math:log($n0)
+    let $check :=
+      if (fn:not(fn:empty($n1))) then
+        (
+          map:put($map,"sum0",map:get($map,"sum0") + $logn0),
+          map:put($map,"sum1",map:get($map,"sum1") + ($n1 * $logn0)),
+          map:put($map,"sum2",map:get($map,"sum2") + $n1),
+          map:put($map,"sum3",map:get($map,"sum3") + ($logn0 * $logn0))
+        )
+      else ()
+    return ()
+  let $B := (($count * map:get($map,"sum1")) - (map:get($map,"sum2") * map:get($map,"sum0"))) div (($count * map:get($map,"sum3")) - (map:get($map,"sum0") * map:get($map,"sum0")))
+  let $A := (map:get($map,"sum2") - ($B * map:get($map,"sum0"))) div $count
+  let $str := "y = " || xs:string(math:floor($A * 100) div 100) || " + " || xs:string(math:floor($B * 100) div 100) || " ln(x)"
+  return ($count,$A,$B,$str)
+};
+local:logML(cts:search(fn:collection("zoo"),cts:true-query()),"/age","/iq")
+</query><query name="007x logistic reg" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+(: Logistic Regression based on: http://vassarstats.net/logreg1.html :)
+(: Linear regression code from here: http://stackoverflow.com/questions/18939869/how-to-get-the-slope-of-a-linear-regression-line-using-c :)
+
+(: No range indexes required :)
+(: Over 500K records, executs in 8.95 seconds with warm caches :)
+
+(: For a built-in version of the linear-model (linear regression), see 005 Linear Regression. (Executes in 0.040 seconds) :)
+(: For a UDF version of this logistic regression (warning: requires range indexes), see 007udf log reg. (Executes in 0.042 seconds) :)
+
+declare function local:getAge($doc as node()) as xs:double {
+  $doc/age
+};
+
+declare function local:getIq($doc as node()) as xs:double {
+  $doc/iq
+};
+
+declare function local:getWeight($doc as node()) as xs:double {
+  xs:double($doc/weight) (: conversion required as no range index exists :)
+};
+
+declare function local:logreg($uris (:,$getX as xdmp:function,$getY as xdmp:function:) ) {
+  (: Perform linear regression to calculate log[odds] :)
+  let $map := map:map()
+  let $_ := map:put($map,"sumx",0.0)
+  let $_ := map:put($map,"sumy",0.0)
+  let $_ := map:put($map,"sumxx",0.0)
+  let $_ := map:put($map,"sumxy",0.0)
+  let $count := fn:count($uris)
+  let $_ :=
+    for $uri in $uris
+    (:
+    let $n0 := xs:double(xdmp:unpath(xdmp:path($uri) || $xpathx))
+    let $n1 := xs:double(xdmp:unpath(xdmp:path($uri) || $xpathy))
+    :)
+    
+    
+    let $n0 := xs:double($uri/age) (: Using this here is much, much quicker. May want to pass in two functions to fetch this data rather than use unpath :)
+    let $n1 := xs:double($uri/iq)
+    
+    (:
+    let $n0 := $getX($uri)
+    let $n1 := $getY($uri)
+    :)
+    
+    let $check :=
+      if (fn:not(fn:empty($n1))) then
+        (
+          map:put($map,"sumx",map:get($map,"sumx") + $n0),
+          map:put($map,"sumy",map:get($map,"sumy") + $n1),
+          map:put($map,"sumxx",map:get($map,"sumxx") + ($n0 * $n0)),
+          map:put($map,"sumxy",map:get($map,"sumxy") + ($n0 * $n1))
+        )
+      else ()
+    return ()
+  (: (n * s_xy - s_x * s_y) / (n * s_xx - s_x * s_x) :)
+  let $B := (($count * map:get($map,"sumxy")) - (map:get($map,"sumx") * map:get($map,"sumy"))) div (($count * map:get($map,"sumxx")) - (map:get($map,"sumx") * map:get($map,"sumx")))
+  (: intercept = (ySum - slope * xSum) / data.size(); :)
+  let $A := (map:get($map,"sumy") - ($B * map:get($map,"sumx"))) div $count
+  let $str := "log[odds] = " || xs:string(math:floor($A * 10000) div 10000) || " + " || xs:string(math:floor($B * 10000) div 10000) || "x"
+  
+  (: Now calculate the odds and probability from the log reg formula :)
+  let $odds := "odds = exp(" || xs:string(math:floor($A * 10000) div 10000) || " + " || xs:string(math:floor($B * 10000) div 10000) || "x)"
+  let $prob := "p = exp(" || xs:string(math:floor($A * 10000) div 10000) || " + " || 
+    xs:string(math:floor($B * 10000) div 10000) || "x) / (1 - exp(" 
+    || xs:string(math:floor($A * 10000) div 10000) || " + " || xs:string(math:floor($B * 10000) div 10000) || "x) )"
+  
+  return ($count,$A,$B,$str,$odds,$prob)
+};
+
+local:logreg(cts:search(fn:collection("zoo"),cts:true-query())) (:,xdmp:function(xs:QName("local:getAge")),xdmp:function(xs:QName("local:getWeight"))) :)
+
+</query><query name="009x kNN Simple single match" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">(: This is an implementation of the k Nearest Neighbour (kNN) algorithm :)
+(: This implementation takes a description of the Untreated set as a MarkLogic query, and a description of the Treated set as another MarkLogic Query :)
+(: We then loop through each Treated member and use MarkLogic search scoring to find the nearest neighbour :)
+(: MarkLogic's default scoring algorithm is replaced with 'score simple', which uses the raw scores plus the weights relating to distance from the query :)
+(: Other scoring mechanisms can be used, including linear, inverse linear, logarithmic or inverse logarithmic :)
+(: Note: This implementation allows more than one treated result to match to each untreated result :)
+
+(: This would be exposed in SQL as follows: SELECT KNN(1,age,iq) FROM zoo :)
+
+declare function local:nearestNeighbour($doc,$max as xs:positiveInteger,$col as xs:string,$query as cts:query)  {
+  (: For given document and specified parameters, find it's nearest neighbour in the provided query set :)
+  for $res in cts:search(fn:collection($col),
+    cts:and-query((
+      $query ,
+      cts:or-query(( (: Maximises matches even if some data missing. Can enforce this to an and-query if all records must have all fields :)
+        cts:or-query((
+          cts:json-property-range-query("age","&lt;=",$doc/age,("score-function=reciprocal","slope-factor=1")),
+          cts:json-property-range-query("age","&gt;",$doc/age,("score-function=reciprocal","slope-factor=1"))
+        ))
+        
+        ,
+        cts:or-query((
+          cts:json-property-range-query("iq","&lt;=",$doc/iq,("score-function=reciprocal","slope-factor=1")),
+          cts:json-property-range-query("iq","&gt;",$doc/iq,("score-function=reciprocal","slope-factor=1"))
+        )) (: Add as many other fields here as you like :)
+        
+      )) 
+    ))
+  )[1 to $max]
+  return (fn:base-uri($res) ,cts:score($res) (:,xs:double($res/age):) )
+};
+
+let $k := 10
+let $candidate := fn:doc("/zoo/animals/tiger438158.json")
+let $untreatedQuery := cts:json-property-value-query("family","Potters") (: The records we're tying to match our candidate to :)
+
+let $results := local:nearestNeighbour($candidate,$k,"zoo",$untreatedQuery)
+
+return ("Candidate (Treated):-",$candidate,"Matched with (Untreated): ",fn:doc($results[1]),"Full list of k matches, and their descending scores: ", $results)
+</query><query name="009x kNN full pairing" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+(: This query is like 009x kNN Simple but will match every 'Treated' result in the database with an Untreated result :)
+
+(: This is an implementation of the k Nearest Neighbour (kNN) algorithm :)
+(: This implementation takes a description of the Untreated set as a MarkLogic query, and a description of the Treated set as another MarkLogic Query :)
+(: We then loop through each Treated member and use MarkLogic search scoring to find the nearest neighbour in the Untreated set :)
+(: MarkLogic's default scoring algorithm is replaced with 'score simple', which uses the raw scores plus the weights relating to distance from the query :)
+(: Other scoring mechanisms can be used, including linear, inverse linear, logarithmic or inverse logarithmic :)
+(:   Note for information on granularity, see: http://docs.marklogic.com/guide/search-dev/relevance#id_32386 :)
+(: Note: This implementation allows more than one treated result to match to each untreated result :)
+
+(: This would be exposed in SQL as follows: SELECT KNN(1,age,iq) FROM zoo :)
+
+(: Perhaps a better way to manage nearest neighbour matching is on ingest. A MarkLogic Alert can be used to find individual matches as
+   new data arrives, allowing for pre-calculation. This would require knowing the covariants in advance, unless we use alerts to store
+   the best n matches for each covariant and the distance for each match per covariant. This should be considered. :)
+
+declare function local:nearestNeighbour($doc,$max as xs:positiveInteger,$col as xs:string,$query as cts:query)  {
+  (: For given document and specified parameters, find it's nearest neighbour in the provided query set :)
+  for $res in cts:search(fn:collection($col),
+    cts:and-query((
+      $query ,
+      cts:or-query(( (: Maximises matches even if some data missing. Can enforce this to an and-query if all records must have all fields :)
+        cts:or-query((
+          cts:json-property-range-query("age","&lt;=",$doc/age,("score-function=reciprocal","slope-factor=1")),
+          cts:json-property-range-query("age","&gt;",$doc/age,("score-function=reciprocal","slope-factor=1"))
+        ))
+        
+        ,
+        cts:or-query((
+          cts:json-property-range-query("iq","&lt;=",$doc/iq,("score-function=reciprocal","slope-factor=1")),
+          cts:json-property-range-query("iq","&gt;",$doc/iq,("score-function=reciprocal","slope-factor=1"))
+        )) (: Add as many other fields here as you like :)
+        
+      )) 
+    ))
+  ,("unfiltered","score-logtf","unfaceted"))[1 to $max]
+  return (fn:base-uri($res) ,cts:score($res) (:,xs:double($res/age):) )
+};
+
+let $k := 1
+let $col := "zoo"
+let $untreatedQuery := cts:json-property-value-query("family","Potters","exact") (: The records we're tying to match our candidate to :)
+(:
+let $treatedQuery := cts:not-query($untreatedQuery) (: Simply the opposite of untreated, but could be a completely different query :)
+:)
+let $treatedQuery := cts:json-property-value-query("family","Malfoys","exact")
+
+let $estimateMax := xdmp:estimate(cts:search(fn:collection($col),$treatedQuery))
+let $results := 
+  for $candidate in cts:search(fn:collection($col),$treatedQuery)[1 to 100]
+  return (fn:base-uri($candidate),local:nearestNeighbour($candidate,$k,$col,$untreatedQuery))
+
+return ($estimateMax,fn:count($results)) (: First 100 results, their nearest $k matches, and each match's score :)</query><query name="007udf log reg" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+(: This executes a logistic Regression over two fields. :)
+(: NOTE: Both fields must have a range index configured :)
+(: For 500K, result returns in 0.055 seconds :)
+(: This performance is possible thanks to range indexes, and the distributed nature of UDFs running over a cluster/set of forests :)
+cts:aggregate(
+  "native/logreg",
+  "logreg",
+  (
+    cts:element-reference(xs:QName("age"),()),
+    cts:element-reference(xs:QName("iq"),())
+  ),  (), ("fragment-frequency"), 
+  cts:collection-query("zoo")
+)</query><query name="996 Install log reg" focus="false" active="true" content-source="6428764188427712716:0:Apps" mode="xquery">xquery version "1.0-ml";
+import module namespace plugin = "http://marklogic.com/extension/plugin" at "MarkLogic/plugin/plugin.xqy";
+plugin:install-from-zip("native", xdmp:document-get(
+"/mnt/hgfs/adamfowler/Documents/marklogic/git/mlcplusplus/release/samples/cpplogregudf/logreg.zip")/node())</query><query name="009x kNN manual" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+(: This query is like 009x kNN Simple but will match every 'Treated' result in the database with an Untreated result :)
+
+(: This implementation does not use range indexes or advanced search, instead using search to just find and loop over untreated results :)
+(: This is a very manual process, executed in series, not parallel :)
+
+declare function local:nearestNeighbour($doc,$max as xs:positiveInteger,$col as xs:string,$query as cts:query)  {
+  (: For given document and specified parameters, find it's nearest neighbour in the provided query set :)
+  let $map := map:map()
+  let $_ := map:put($map,"bestinversedistance",0.0) (: larger distance is bad (inverse) :)
+  let $_ := map:put($map,"besturi","") 
+  let $_ :=
+    for $res in cts:search(fn:collection($col),
+      $query
+    ,("unfiltered","score-zero","unfaceted")) (: manual score calculation = no range indexes required :)
+    let $score := math:pow( ((1.0 + math:fabs( xs:double($res/age) - xs:double($doc/age))) * (1.0 + math:fabs(xs:double($res/weight) - xs:double($doc/weight)))) , -2) (: Just two fields for now, using euclidean distance :)
+    return
+      if (map:get($map,"bestinversedistance") lt $score) then
+        (map:put($map,"bestinversedistance",$score), map:put($map,"besturi",fn:base-uri($res)) )
+      else ()
+  return (map:get($map,"besturi") ,map:get($map,"bestinversedistance") (:,xs:double($res/age):) )
+};
+
+let $k := 5
+let $col := "zoo"
+let $untreatedQuery := cts:json-property-value-query("family","Potters","exact") (: The records we're tying to match our candidate to :)
+(:
+let $treatedQuery := cts:not-query($untreatedQuery) (: Simply the opposite of untreated, but could be a completely different query :)
+:)
+let $treatedQuery := cts:json-property-value-query("family","Malfoys","exact")
+
+let $estimateMax := xdmp:estimate(cts:search(fn:collection($col),$treatedQuery))
+let $results := 
+  for $candidate in cts:search(fn:collection($col),$treatedQuery)[1 to 100]
+  return (fn:base-uri($candidate),local:nearestNeighbour($candidate,$k,$col,$untreatedQuery))
+
+return ($estimateMax,fn:count($results) (:,$results,fn:doc($results[1]),fn:doc($results[2]):)  )  
+(: First 100 results, their nearest $k matches, and each match's score :)
+
+
+
+</query><query name="009x kNN manual spawn" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+(: This query is like 009x kNN Simple but will match every 'Treated' result in the database with an Untreated result :)
+
+(: This implementation does not use range indexes, but does parallelise the work, with 
+   each of 4 threads processing 1/4 of the 'treated' results to match :)
+(: For 100 treated results this runs in 19.327 seconds :)
+(: For 1000 treated results this runs in 3M20.160 seconds 
+   (Thus for a 2 core machine, 450K results can be processed in 25 minutes, but for a typical 3x8 core ML DB warehouse cluster, 
+   this would be approx 3 minutes) :)
+
+declare function local:nearestNeighbour($doc,$max as xs:positiveInteger,$col as xs:string,$query as cts:query)  {
+  (: For given document and specified parameters, find it's nearest neighbour in the provided query set :)
+  let $map := map:map()
+  let $_ := map:put($map,"bestinversedistance",0.0) (: larger distance is bad (inverse) :)
+  let $_ := map:put($map,"besturi","") 
+  let $_ :=
+    for $res in cts:search(fn:collection($col),
+      $query
+    ,("unfiltered","score-zero","unfaceted")) (: manual score calculation = no range indexes required :)
+    let $score := math:pow( ((1.0 + math:fabs( xs:double($res/age) - xs:double($doc/age))) * (1.0 + math:fabs(xs:double($res/weight) - xs:double($doc/weight)))) , -2) (: Just two fields for now, using euclidean distance :)
+    return
+      if (map:get($map,"bestinversedistance") lt $score) then
+        (map:put($map,"bestinversedistance",$score), map:put($map,"besturi",fn:base-uri($res)) )
+      else ()
+  return (map:get($map,"besturi") ,map:get($map,"bestinversedistance") (:,xs:double($res/age):) )
+};
+
+declare function local:doit($start,$size,$col,$treatedQuery,$untreatedQuery) {
+  for $candidate in cts:search(fn:collection($col),$treatedQuery)[(1 + $start) to ($size + $start - 1)]
+  return (fn:base-uri($candidate),local:nearestNeighbour($candidate,1,$col,$untreatedQuery))
+};
+
+let $k := 5
+let $col := "zoo"
+let $untreatedQuery := cts:json-property-value-query("family","Potters","exact") (: The records we're tying to match our candidate to :)
+(:
+let $treatedQuery := cts:not-query($untreatedQuery) (: Simply the opposite of untreated, but could be a completely different query :)
+:)
+let $treatedQuery := cts:json-property-value-query("family","Malfoys","exact")
+
+let $estimateMax := xdmp:estimate(cts:search(fn:collection($col),$treatedQuery))
+let $size := 250
+let $results := 
+  (
+  xdmp:spawn-function(function() {(xdmp:log("SPAWN 1 BEGIN"),xdmp:log(local:doit(1,$size,$col,$treatedQuery,$untreatedQuery)),xdmp:log("SPAWN 1 END"))}),
+  xdmp:spawn-function(function() {(xdmp:log("SPAWN 2 BEGIN"),xdmp:log(local:doit(1 + ($size),$size,$col,$treatedQuery,$untreatedQuery)),xdmp:log("SPAWN 2 END"))}),
+  xdmp:spawn-function(function() {(xdmp:log("SPAWN 3 BEGIN"),xdmp:log(local:doit(1 + (2 * $size),$size,$col,$treatedQuery,$untreatedQuery)),xdmp:log("SPAWN 3 END"))}),
+  xdmp:spawn-function(function() {(xdmp:log("SPAWN 4 BEGIN"),xdmp:log(local:doit(1 + (3 * $size),$size,$col,$treatedQuery,$untreatedQuery)),xdmp:log("SPAWN 4 END"))})
+  )
+
+return ($estimateMax,fn:count($results) (:,$results,fn:doc($results[1]),fn:doc($results[2]):)  )  
+(: First 100 results, their nearest $k matches, and each match's score :)
+
+(: Note spawn functions do not return here. The evidence for the above is in the log files in MarkLogic :)
+(: In reality we would provide a ticket number or similar, and you would check for that ticket number's progress :)
+(: select kNNSpawn(1,age,weight) from zoo =&gt; returns a ticket number :)
+(: select progress from ticket where no=1234 =&gt; returns "running", "failed", or "complete" :)
+(: select * from ticket where no=1234 =&gt; Returns the result data, just as a non spawned version would :)
+
+
+
+</query></workspace></export>
