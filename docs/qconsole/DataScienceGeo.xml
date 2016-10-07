@@ -1,0 +1,220 @@
+<export><workspace name="DataScienceGeo"><query name="001 Get Feature" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">declare namespace gml="http://www.opengis.net/gml";
+declare namespace osgb="http://www.ordnancesurvey.co.uk/xml/namespaces/osgb";
+
+(: //gml:Point[1]:)
+
+(fn:collection("cartographic")/osgb:cartographicMember)[1] (: /osgb:CartographicText/osgb:anchorPoint/gml:Point[@srsName="osgb:BNG"]/gml:coordinates[1] :)
+</query><query name="002 Point Radius" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+declare namespace gml="http://www.opengis.net/gml";
+declare namespace osgb="http://www.ordnancesurvey.co.uk/xml/namespaces/osgb";
+
+cts:search(fn:collection("cartographic"),
+  cts:path-geospatial-query(
+    "/osgb:cartographicMember/osgb:CartographicText/osgb:anchorPoint/gml:Point[@srsName=""osgb:BNG""]/gml:coordinates",
+    cts:circle(0.1,cts:point(290001.4,91378.2)),
+    ("coordinate-system=raw","score-function=reciprocal","slope-factor=1","boundaries-included","units=miles")
+  )
+)
+</query><query name="003 Geo Lexicon Look" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+declare namespace gml="http://www.opengis.net/gml";
+declare namespace osgb="http://www.ordnancesurvey.co.uk/xml/namespaces/osgb";
+
+(: Look in to the values in the geospatial index lexicon :)
+(: Lexicon lookups are useful when you want to fetch known values from a range index.
+   You can also restrict these results by a search query too. :)
+cts:values(
+  cts:path-reference(
+    "/osgb:cartographicMember/osgb:CartographicText/osgb:anchorPoint/gml:Point[@srsName=""osgb:BNG""]/gml:coordinates",
+    ("type=point","coordinate-system=raw")
+  )
+)[1 to 10] (: Limiting to first ten for illustration purposes :)</query><query name="004 Count Point Radius" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+(: Returns the count of results in an area, and the first 10 of those results :)
+declare namespace gml="http://www.opengis.net/gml";
+declare namespace osgb="http://www.ordnancesurvey.co.uk/xml/namespaces/osgb";
+
+let $res := cts:search(fn:collection("cartographic"),
+  cts:path-geospatial-query(
+    "/osgb:cartographicMember/osgb:CartographicText/osgb:anchorPoint/gml:Point[@srsName=""osgb:BNG""]/gml:coordinates",
+    cts:circle(1000.0,cts:point(290001.4,91378.2)),
+    ("coordinate-system=raw","score-function=reciprocal","slope-factor=1","boundaries-included")
+  )
+)
+return (fn:count($res),$res[1 to 10])
+</query><query name="005 Point within Polygon" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+import module namespace geogml = "http://marklogic.com/geospatial/gml"
+         at "/MarkLogic/geospatial/gml.xqy";
+declare namespace gml="http://www.opengis.net/gml";
+declare namespace osgb="http://www.ordnancesurvey.co.uk/xml/namespaces/osgb";
+
+let $region := cts:polygon((cts:point(290000.0,91370.0),cts:point(290010.0,91270.0),cts:point(290011.0,91370.0),cts:point(290012.0,91400.0),cts:point(290000.0,91400.0)))
+let $centre := geo:approx-center($region,("coordinate-system=raw"))
+
+let $results := cts:search(fn:collection("cartographic"),
+  cts:path-geospatial-query(
+    "/osgb:cartographicMember/osgb:CartographicText/osgb:anchorPoint/gml:Point[@srsName=""osgb:BNG""]/gml:coordinates",
+    (: cts:circle(0.1,cts:point(290001.4,91378.2)), :)
+    $region,
+    ("coordinate-system=raw","score-function=reciprocal","slope-factor=1","boundaries-included","units=miles")
+  )
+)
+return 
+("Total count of results: ", fn:count($results),"Results:-",
+  for $res at $idx in $results
+  let $pt := $res/osgb:cartographicMember/osgb:CartographicText/osgb:anchorPoint/gml:Point[@srsName="osgb:BNG"]
+  let $coords := $pt/gml:coordinates
+  let $parts := fn:tokenize(xs:string($coords),",")
+  let $left := $parts[1]
+  let $right := $parts[2]
+  return
+    ("RESULT:",$idx,"Search relevance score: ",cts:score($res), "Distance from centre of region: ", geo:distance($centre,
+      cts:point(xs:double($left),xs:double($right)),("coordinate-system=raw")),"Result XML: ",$res)
+)
+</query><query name="006 Distance between points" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+import module namespace geogml = "http://marklogic.com/geospatial/gml"
+         at "/MarkLogic/geospatial/gml.xqy";
+declare namespace gml="http://www.opengis.net/gml";
+declare namespace osgb="http://www.ordnancesurvey.co.uk/xml/namespaces/osgb";
+
+declare function local:gml-bng-to-cts-point($pt as element(gml:Point)) {
+  let $coords := $pt/gml:coordinates
+  let $parts := fn:tokenize(xs:string($coords),",")
+  let $left := $parts[1]
+  let $right := $parts[2]
+  return cts:point(xs:double($left),xs:double($right))
+};
+
+let $pointa := (fn:collection("cartographic"))[1] (: Picking a point for comparison - could be at random, or one you have given the URI for :)
+let $pointb := (fn:collection("cartographic"))[3] (: Picking a point for comparison - could be at random, or one you have given the URI for :)
+(:
+return ($pointa/osgb:cartographicMember/osgb:CartographicText/osgb:anchorPoint/gml:Point[@srsName="osgb:BNG"],$pointb/osgb:cartographicMember/osgb:CartographicText/osgb:anchorPoint/gml:Point[@srsName="osgb:BNG"])
+:)
+
+return 
+("Distance (Metres): ", geo:distance(
+  local:gml-bng-to-cts-point($pointa/osgb:cartographicMember/osgb:CartographicText/osgb:anchorPoint/gml:Point[@srsName="osgb:BNG"]),
+  local:gml-bng-to-cts-point($pointb/osgb:cartographicMember/osgb:CartographicText/osgb:anchorPoint/gml:Point[@srsName="osgb:BNG"])
+,"coordinate-system=raw"), $pointa,$pointb)
+
+</query><query name="007 Is Point In Polygon" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+declare namespace gml="http://www.opengis.net/gml";
+declare namespace osgb="http://www.ordnancesurvey.co.uk/xml/namespaces/osgb";
+
+let $polygonOut := cts:polygon((cts:point(290000.0,91370.0),cts:point(290010.0,91270.0),cts:point(290011.0,91370.0),cts:point(290012.0,91400.0),cts:point(290000.0,91400.0)))
+let $polygonIn := cts:polygon((cts:point(291848.0,91599.0),cts:point(291840.0,91589.0),cts:point(292000.0,91589.0)))
+
+let $point := (fn:collection("cartographic"))[3]
+let $pointuri := fn:base-uri($point) (: THE POINT's ID WITHIN THE DATABASE IS ITS URI :)
+
+let $searchOut := cts:search(fn:collection("cartographic"), cts:and-query((
+  cts:document-query($pointuri), (: RESTRICT MATCHES TO JUST THE POINT WE CARE ABOUT :)
+  cts:path-geospatial-query(
+    "/osgb:cartographicMember/osgb:CartographicText/osgb:anchorPoint/gml:Point[@srsName=""osgb:BNG""]/gml:coordinates",
+    $polygonOut,
+    ("coordinate-system=raw","score-function=reciprocal","slope-factor=1","boundaries-included","units=miles")
+  )
+)))
+let $searchIn := cts:search(fn:collection("cartographic"), cts:and-query((
+  cts:document-query($pointuri),
+  cts:path-geospatial-query(
+    "/osgb:cartographicMember/osgb:CartographicText/osgb:anchorPoint/gml:Point[@srsName=""osgb:BNG""]/gml:coordinates",
+    $polygonIn,
+    ("coordinate-system=raw","score-function=reciprocal","slope-factor=1","boundaries-included","units=miles")
+  )
+)))
+
+return ("Point matches 'out' polygon: ", $searchOut, "point matches 'in' polygon: ",$searchIn,"Actual point XML: ",$point)
+</query><query name="008 Count of properties" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+xdmp:estimate(fn:collection("addressbasepremium")) (: try 'cartographic' or 'topographic' or 'addressbasepremium' :)</query><query name="009 Postcode Lookup" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+(: Uses address base premium data to return a set of 11 matching addresses and UPRNs for a given Postcode :)
+(: 0.0038 seconds over sample address base premium result set :)
+declare namespace abpr = "http://namespaces.geoplace.co.uk/addressbasepremium/2.0";
+declare namespace gml32 = "http://www.opengis.net/gml/3.2";
+
+for $res at $idx in cts:search(fn:collection("addressbasepremium"),
+  cts:element-value-query(xs:QName("abpr:postcode"),"EX1 1DN") (: NB You could extend this to "EX1 *" by using a 3 character wildcard index :)
+)
+return
+  ($idx,&lt;summary&gt;{ (: In reality you'd use a prettier output format for a summary! :)
+    $res/abpr:basicLandPropertyUnitMember/abpr:BasicLandPropertyUnit/@gml32:id,
+    $res/abpr:basicLandPropertyUnitMember/abpr:BasicLandPropertyUnit/abpr:uprn,
+    $res/abpr:basicLandPropertyUnitMember/abpr:BasicLandPropertyUnit/abpr:position/gml32:Point[@srsName="urn:ogc:def:crs:EPSG::27700"],
+    $res/abpr:basicLandPropertyUnitMember/abpr:BasicLandPropertyUnit/abpr:positionLatLong/gml32:Point[@srsName="urn:ogc:def:crs:EPSG::4258"],
+    $res/abpr:basicLandPropertyUnitMember/abpr:BasicLandPropertyUnit/abpr:postcodeLocator,
+    $res/abpr:basicLandPropertyUnitMember/abpr:BasicLandPropertyUnit/abpr:deliveryPointAddressMember/abpr:DeliveryPointAddress/abpr:buildingNumber,
+    $res/abpr:basicLandPropertyUnitMember/abpr:BasicLandPropertyUnit/abpr:deliveryPointAddressMember/abpr:DeliveryPointAddress/abpr:thoroughfare,
+    $res/abpr:basicLandPropertyUnitMember/abpr:BasicLandPropertyUnit/abpr:deliveryPointAddressMember/abpr:DeliveryPointAddress/abpr:postTown
+    }
+    &lt;uri&gt;{fn:base-uri($res)}&lt;/uri&gt;
+    &lt;/summary&gt;)
+    
+    
+    </query><query name="010 Addresses in area" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+declare namespace abpr = "http://namespaces.geoplace.co.uk/addressbasepremium/2.0";
+declare namespace gml32 = "http://www.opengis.net/gml/3.2";
+(: 0.018 seconds (cold caches) :)
+
+let $region := cts:polygon((cts:point(290000.0,91370.0),cts:point(290010.0,91270.0),cts:point(290011.0,91370.0),cts:point(290012.0,91400.0),cts:point(290000.0,91400.0)))
+let $centre := geo:approx-center($region,("coordinate-system=raw"))
+
+let $res := cts:search(fn:collection("addressbasepremium"),
+  cts:path-geospatial-query(
+    "/abpr:basicLandPropertyUnitMember/abpr:BasicLandPropertyUnit/abpr:position/gml32:Point[@srsName=""urn:ogc:def:crs:EPSG::27700""]/gml32:pos",
+    $region,
+    ("coordinate-system=raw","score-function=reciprocal","slope-factor=1","boundaries-included")
+  )
+)
+return ("TOTAL: ",fn:count($res),"First 10 results:",$res[1 to 10])
+
+</query><query name="011 Polygon Intersection" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+(: Performs a search to narrow down the area of interest, then finds all buildings in that area which overlap with the region (site) polygon of interest :)
+(: 16.30 seconds with cold caches,  2.233 seconds with warm caches :)
+import module namespace geogml = "http://marklogic.com/geospatial/gml"
+         at "/MarkLogic/geospatial/gml.xqy";
+declare namespace gml="http://www.opengis.net/gml";
+declare namespace osgb="http://www.ordnancesurvey.co.uk/xml/namespaces/osgb";
+
+declare function local:gml-to-cts-polygon($poly as element(gml:coordinates)) as cts:polygon {
+cts:polygon((
+  for $pair in fn:tokenize(xs:string($poly)," ")
+  return
+    let $splits := fn:tokenize($pair,",")
+    return cts:point(xs:double($splits[1]),xs:double($splits[2]))
+  ))
+};
+
+let $region := cts:polygon((cts:point(294398.0,90643.0),cts:point(294399.0,90643.0),cts:point(294398.5,90642.0),cts:point(294399.0,90646.0),cts:point(294398.0,90646.0)))
+let $centre := geo:approx-center($region,("coordinate-system=raw"))
+let $approx := (:geo:region-approximate($region,1,("coordinate-system=raw")):)
+  cts:circle(20.0,$centre) (: NB You may have some other approximating function, such as simplifying the polygon and adding a 1km boundary :)
+  (: use 20.0 metres above for 6 matching results, 200.0 metres for 721 results, both queries completes within 2.2 seconds, 
+     but for 200 metres it takes time to render the XML results to your browser! Purely a browser limitation. :)
+return
+  for $r at $idx in 
+    cts:search(fn:collection("topographic"),
+      (:cts:and-query(()):) (: NB any other restricting query parameters added here. E.g. building type, matching text, etc. :)
+
+      cts:path-geospatial-query(
+        "/osgb:topographicMember/osgb:TopographicArea/osgb:polygon/gml:Polygon/gml:outerBoundaryIs/gml:LinearRing/gml:coordinates",
+        (: cts:circle(0.1,cts:point(290001.4,91378.2)), :)
+        $approx, (: TODO use approx or wider approximation, rather than match all or approx (nothing) :)
+        ("coordinate-system=raw","score-function=zero","boundaries-included","units=miles") (: actually metres :)
+      )
+    ) (:[1 to 1000000]:)
+  return
+    if (cts:polygon-intersects(
+      local:gml-to-cts-polygon(
+        $r/osgb:topographicMember/osgb:TopographicArea/osgb:polygon/gml:Polygon/gml:outerBoundaryIs/gml:LinearRing/gml:coordinates)
+        ,$region)
+    ) 
+    then ("Result index:",$idx,"Result XML: ",$r) 
+    else ()
+
+</query><query name="012 Search by UPRN" focus="true" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+declare namespace abpr = "http://namespaces.geoplace.co.uk/addressbasepremium/2.0";
+declare namespace gml32 = "http://www.opengis.net/gml/3.2";
+
+(: Simple get, but you could use cts:search too if you wanted to restrict by other search queries as well as uprn :)
+(: Executes in 0.0006 seconds :)
+fn:collection("addressbasepremium")/abpr:basicLandPropertyUnitMember[./abpr:BasicLandPropertyUnit/abpr:uprn = "100040213307"]
+
+(: Try to match UPRN against mastermap and pull back joined data set :)</query></workspace></export>

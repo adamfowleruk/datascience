@@ -1,0 +1,31 @@
+<export><workspace name="DataScienceProcess"><query name="020 Export CSV" focus="true" active="true" content-source="as:4522790676736030483:" mode="javascript">
+var results = fn.collection("zoo").toArray(); // minimise result set length - sends all to RAM otherwise
+var str = "";
+// field names
+if (results.length &gt; 0) {
+  var first = true;
+  for (var fieldname in results[0].root.toObject()) {
+    if (!first) {
+      str += ",";
+    } else {
+      first = false;
+    }
+    str += fieldname;
+  }
+  str += "\n";
+}
+// field values
+for (var rc = 0;rc &lt; 1000;rc++ ) { // replace 100 with length of results
+  var obj = results[rc].root.toObject();
+  var first = true;
+  for (var fieldname in obj) {
+    if (!first) {
+      str += ",";
+    } else {
+      first = false;
+    }
+    str += obj[fieldname];
+  }
+  str += "\n";
+}
+str;</query></workspace></export>
