@@ -35,6 +35,10 @@ needs of indexing may not be a good trade off for not often used indexes.
 
 Currently the following are available out of the box in MarkLogic Server, and are not part of this project:-
 
+- sum, count, mean, mode, median, standard deviation, standard deviation p, variance, variance p
+- linear-model (i.e. linear regression)
+- value lexicon lookups
+- tuples for co-occurence
 
 The following are implemented on top of MarkLogic Server by this project:-
 
