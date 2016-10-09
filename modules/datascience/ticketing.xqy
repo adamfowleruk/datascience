@@ -13,10 +13,14 @@ declare function m:ticket-progress($ticket as xs:string) as xs:double {
     map:put($map,"complete",0)
   )
   let $_ :=
-    for $doc in fn:collection("/datascience/tickets")/ticket[id=$ticket]
+    for $doc in fn:collection("/datascience/tickets")/ticket[./id eq $ticket]
     return (
       map:put($map,"total",map:get($map,"total") + $doc/total),
       map:put($map,"complete",map:get($map,"complete") + $doc/complete)
     )
-  return map:get($map,"complete") div map:get($map,"total")
+  return
+    if (0 eq map:get($map,"total")) then
+      0
+    else
+      map:get($map,"complete") div map:get($map,"total")
 };

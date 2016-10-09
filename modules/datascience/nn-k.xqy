@@ -23,14 +23,14 @@ declare function m:nn-k-spawn($k as xs:positiveInteger,$col as xs:string,
   (: Set up function :)
   let $maxThreads := 4 (: TODO discover this from the current system itself :)
   let $max := xdmp:estimate(cts:search(fn:collection($col),$treatedQuery))
-  let $size := math:ceil($max div $maxThreads)
+  let $size := xs:positiveInteger(math:ceil($max div $maxThreads))
   (: spawn function :)
   let $spawns :=
     for $pid in (1 to $maxThreads)
     return xdmp:spawn-function(
       function() {(
         xdmp:log("findNearestNeighbourEuclideanSpawned:spawn-begin:" || xs:string($pid)),
-        xdmp:log(m:findKNearestNeighbourEuclideanBegin($ticket,$pid,$k,1 + ($pid * $size),$size,$max,$col,$treatedQuery,$untreatedQuery,$nsarray,$fieldpaths)),
+        xdmp:log(m:findKNearestNeighbourEuclideanBegin($ticket,$pid,$k,xs:positiveInteger(1 + (($pid - 1) * $size)),$size,$max,$col,$treatedQuery,$untreatedQuery,$nsarray,$fieldpaths)),
         xdmp:log("findNearestNeighbourEuclideanSpawned:spawn-end:" || xs:string($pid))
       )}
     )
@@ -47,24 +47,31 @@ declare function m:findKNearestNeighbourEuclideanBegin($ticket as xs:string,$pid
     let $lastIndex :=
       if ($calcIndex gt $max) then $max else $calcIndex
 
-    let $initLog := tu:ticket-update($ticket,$pid,$max - $start + 1,0)
+    let $_ := xdmp:log("thread " || xs:string($pid) || " of ticket " || $ticket || ":start=" || xs:string($start) ||
+      ",size=" || xs:string($size) || ",max=" || xs:string($max))
+
+    (: let $initLog := tu:ticket-update($ticket,$pid,$max - $start + 1,0) :)
 
     let $output :=
-      for $candidate at $idx in cts:search(fn:collection($col),$treatedQuery)[(1 + $start) to ($lastIndex)]
+      for $candidate at $idx in cts:search(fn:collection($col),$treatedQuery)[$start to ($lastIndex)]
       let $candidateUri := fn:base-uri($candidate)
       let $status :=
         if (($idx mod 10000) eq 0) then
           (: Log status :)
           (
-            xdmp:log($ticket || ":" || $pid || ":status: at index " || xs:string($idx) || " of " || xs:string($size)),
+            xdmp:log($ticket || ":" || $pid || ":status: at index " || xs:string($idx) || " of " || xs:string($size))
+
+            (:
+            ,
             (: TODO also update progress document in database :)
             (: WARNING if we do this, this entire module will be an update module... :)
             tu:ticket-update($ticket,$pid,$max - $start + 1,$start + $idx - 2) (: -2 as we've not done this one yet :)
+            :)
           )
         else ()
       return ($candidateUri,m:findKNearestNeighbourEuclidean($candidate,$k,$col,$untreatedQuery,$nsarray,$fieldpaths))
 
-    let $finishLog := tu:ticket-update($ticket,$pid,$max - $start + 1,$max - $start + 1)
+    (:let $finishLog := tu:ticket-update($ticket,$pid,$max - $start + 1,$max - $start + 1) :)
 
     (: TODO log progress regularly and at the end of the run :)
     return ()
@@ -119,8 +126,8 @@ declare function m:findKNearestNeighbourEuclidean($doc as node(),$k as xs:positi
     let $score := math:pow(
       fn:fold-left(function($z, $a) { $z * $a } ,1,
         for $field in $fieldpaths
-        let $fieldVal := xs:double(xdmp:with-namespaces($nsarray,"$res" || $field))
-        let $docVal := xs:double(xdmp:with-namespaces($nsarray,"$doc" || $field))
+        let $fieldVal := xs:double(xdmp:with-namespaces($nsarray,xdmp:unpath("$res" || $field)))
+        let $docVal := xs:double(xdmp:with-namespaces($nsarray,xdmp:unpath("$doc" || $field)))
         return 1.0 + (math:fabs($fieldVal - $docVal))
       ), (-1.0 * fn:count($fieldpaths)))
 
