@@ -1,0 +1,57 @@
+{
+	"id": "087ca153-05ff-79f4-207e-8bb174fedf92",
+	"name": "datascience",
+	"description": "",
+	"order": [
+		"1cebec7c-8d3c-58d7-1d3d-56a7edcd53ec",
+		"df19cd83-5daa-f396-c838-9b130b3f39bc"
+	],
+	"folders": [],
+	"timestamp": 1476117068852,
+	"owner": "",
+	"remoteLink": "",
+	"public": false,
+	"requests": [
+		{
+			"id": "1cebec7c-8d3c-58d7-1d3d-56a7edcd53ec",
+			"headers": "Content-Type: application/xml\nAuthorization: Digest username=\"admin\", realm=\"public\", nonce=\"1\", uri=\"/v1/resources/knn\", response=\"b03cd9adb7a3a0187dff7821a0fd6400\", opaque=\"\"\nAccept: application/json\n",
+			"url": "192.168.123.4:7094/v1/resources/knn",
+			"pathVariables": {},
+			"preRequestScript": null,
+			"method": "POST",
+			"collectionId": "087ca153-05ff-79f4-207e-8bb174fedf92",
+			"data": [],
+			"dataMode": "raw",
+			"name": "192.168.123.4:7094/v1/resources/knn",
+			"description": "Describes or invokes a kNN nearest neighbour match",
+			"descriptionFormat": "html",
+			"time": 1476117068852,
+			"version": 2,
+			"responses": [],
+			"tests": null,
+			"currentHelper": "normal",
+			"helperAttributes": {},
+			"rawModeData": "<invoke>\n <k>1</k>\n <collection>zoo</collection>\n<treatedQuery><cts:and-query xmlns:cts=\"http://marklogic.com/cts\">\n  <cts:json-property-value-query>\n    <cts:property>family</cts:property>\n    <cts:value xml:lang=\"en\">Malfoys</cts:value>\n  </cts:json-property-value-query>\n  <cts:json-property-range-query operator=\"&lt;\">\n    <cts:property>age</cts:property>\n    <cts:value xsi:type=\"xs:integer\" xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">10</cts:value>\n  </cts:json-property-range-query>\n</cts:and-query></treatedQuery>\n<untreatedQuery><cts:and-query xmlns:cts=\"http://marklogic.com/cts\">\n  <cts:json-property-value-query>\n    <cts:property>family</cts:property>\n    <cts:value xml:lang=\"en\">Potters</cts:value>\n  </cts:json-property-value-query>\n  <cts:json-property-range-query operator=\"&lt;\">\n    <cts:property>age</cts:property>\n    <cts:value xsi:type=\"xs:integer\" xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">10</cts:value>\n  </cts:json-property-range-query>\n</cts:and-query></untreatedQuery>\n  <nsarray></nsarray>\n  <fieldpaths>age weight</fieldpaths>\n </invoke>"
+		},
+		{
+			"id": "df19cd83-5daa-f396-c838-9b130b3f39bc",
+			"headers": "Authorization: Digest username=\"admin\", realm=\"public\", nonce=\"1\", uri=\"/v1/resources/ticketing?rs:ticket=2016-10-10T08:57:38.934181-07:00-8238123191290857210\", response=\"3eb789ea422278c2d119af169114c224\", opaque=\"\"\nAccept: application/xml\n",
+			"url": "192.168.123.4:7094/v1/resources/ticketing?rs:ticket=2016-10-10T08:57:38.934181-07:00-8238123191290857210",
+			"pathVariables": {},
+			"preRequestScript": null,
+			"method": "GET",
+			"collectionId": "087ca153-05ff-79f4-207e-8bb174fedf92",
+			"data": null,
+			"dataMode": "params",
+			"name": "192.168.123.4:7094/v1/resources/ticketing?rs:ticket=2016-10-10T08:57:38.934181-07:00-8238123191290857210",
+			"description": "Fetches a ticket's result(s)",
+			"descriptionFormat": "html",
+			"time": 1476117091855,
+			"version": 2,
+			"responses": [],
+			"tests": null,
+			"currentHelper": "normal",
+			"helperAttributes": {}
+		}
+	]
+}
