@@ -32,7 +32,12 @@ declare function m:nn-k-spawn($k as xs:positiveInteger,$col as xs:string,
         xdmp:log("findNearestNeighbourEuclideanSpawned:spawn-begin:" || xs:string($pid)),
         xdmp:log(m:findKNearestNeighbourEuclideanBegin($ticket,$pid,$k,xs:positiveInteger(1 + (($pid - 1) * $size)),$size,$max,$col,$treatedQuery,$untreatedQuery,$nsarray,$fieldpaths)),
         xdmp:log("findNearestNeighbourEuclideanSpawned:spawn-end:" || xs:string($pid))
-      )}
+      )},
+        <options xmlns="xdmp:eval">
+          <database>{xdmp:database()}</database>
+          <transaction-mode>update</transaction-mode>
+        </options>
+
     )
   (: return ticket :)
   return $ticket
@@ -40,7 +45,7 @@ declare function m:nn-k-spawn($k as xs:positiveInteger,$col as xs:string,
 
 declare function m:findKNearestNeighbourEuclideanBegin($ticket as xs:string,$pid as xs:positiveInteger,
   $k as xs:positiveInteger,
-  $start as xs:positiveInteger,$size as xs:positiveInteger,$max as xs:positiveInteger,
+  $start as xs:positiveInteger,$size as xs:int,$max as xs:int,
   $col as xs:string,$treatedQuery as cts:query,$untreatedQuery as cts:query,$nsarray as xs:string*,$fieldpaths as xs:string+) {
   if ($start gt $max) then () else
     let $calcIndex := $size + $start - 1
@@ -50,9 +55,9 @@ declare function m:findKNearestNeighbourEuclideanBegin($ticket as xs:string,$pid
     let $_ := xdmp:log("thread " || xs:string($pid) || " of ticket " || $ticket || ":start=" || xs:string($start) ||
       ",size=" || xs:string($size) || ",max=" || xs:string($max))
 
-    (: let $initLog := tu:ticket-update($ticket,$pid,$max - $start + 1,0) :)
+    let $initLog := tu:ticket-update($ticket,$pid,$size,$lastIndex - $start + 1,0,())
 
-    let $output :=
+    let $output := <knn-result>{
       for $candidate at $idx in cts:search(fn:collection($col),$treatedQuery)[$start to ($lastIndex)]
       let $candidateUri := fn:base-uri($candidate)
       let $status :=
@@ -61,17 +66,23 @@ declare function m:findKNearestNeighbourEuclideanBegin($ticket as xs:string,$pid
           (
             xdmp:log($ticket || ":" || $pid || ":status: at index " || xs:string($idx) || " of " || xs:string($size))
 
-            (:
+
             ,
             (: TODO also update progress document in database :)
             (: WARNING if we do this, this entire module will be an update module... :)
-            tu:ticket-update($ticket,$pid,$max - $start + 1,$start + $idx - 2) (: -2 as we've not done this one yet :)
-            :)
+            tu:ticket-update($ticket,$pid,$size,$lastIndex - $start + 1,$lastIndex - $start + $idx - 2,()) (: -2 as we've not done this one yet :)
+
           )
         else ()
-      return ($candidateUri,m:findKNearestNeighbourEuclidean($candidate,$k,$col,$untreatedQuery,$nsarray,$fieldpaths))
+      return (
+        <match>
+          <candidate>{$candidateUri}</candidate>
+          <matches>{m:findKNearestNeighbourEuclidean($candidate,$k,$col,$untreatedQuery,$nsarray,$fieldpaths)}</matches>
+        </match>
+        )
+      }</knn-result>
 
-    (:let $finishLog := tu:ticket-update($ticket,$pid,$max - $start + 1,$max - $start + 1) :)
+    let $finishLog := tu:ticket-update($ticket,$pid,$size,$lastIndex - $start + 1,$lastIndex - $start + 1,$output)
 
     (: TODO log progress regularly and at the end of the run :)
     return ()
@@ -119,6 +130,8 @@ declare function m:findKNearestNeighbourEuclidean($doc as node(),$k as xs:positi
   let $map := map:map()
   let $_ := map:put($map,"bestinversedistance",0.0) (: larger distance is bad (inverse) :)
   let $_ := map:put($map,"besturi","")
+  let $count := fn:count($fieldpaths)
+  let $denominator := -1.0 * $count
   let $_ :=
     for $res in cts:search(fn:collection($col),
       $untreatedQuery
@@ -126,10 +139,17 @@ declare function m:findKNearestNeighbourEuclidean($doc as node(),$k as xs:positi
     let $score := math:pow(
       fn:fold-left(function($z, $a) { $z * $a } ,1,
         for $field in $fieldpaths
+        let $fp := xs:QName($field)
+        let $fieldVali := $res/*[node-name(.) eq $fp]
+        let $docVali := $doc/*[node-name(.) eq $fp]
+        let $fieldVal := xs:double($fieldVali)
+        let $docVal := xs:double($docVali)
+        (:
         let $fieldVal := xs:double(xdmp:with-namespaces($nsarray,xdmp:unpath("$res" || $field)))
         let $docVal := xs:double(xdmp:with-namespaces($nsarray,xdmp:unpath("$doc" || $field)))
+        :)
         return 1.0 + (math:fabs($fieldVal - $docVal))
-      ), (-1.0 * fn:count($fieldpaths)))
+      ), $denominator)
 
 (:
       ((1.0 + math:fabs( xs:double($res/age) - xs:double($doc/age))) *
