@@ -21,7 +21,7 @@ declare function m:nn-k-spawn($k as xs:positiveInteger,$col as xs:string,
   (: create ticket :)
   let $ticket := t:ticket-create()
   (: Set up function :)
-  let $maxThreads := 4 (: TODO discover this from the current system itself :)
+  let $maxThreads := 9 (: TODO discover this from the current system itself :)
   let $max := xdmp:estimate(cts:search(fn:collection($col),$treatedQuery))
   let $size := xs:positiveInteger(math:ceil($max div $maxThreads))
   (: spawn function :)
@@ -57,11 +57,11 @@ declare function m:findKNearestNeighbourEuclideanBegin($ticket as xs:string,$pid
 
     let $initLog := tu:ticket-update($ticket,$pid,$size,$lastIndex - $start + 1,0,())
 
-    let $output := <knn-result>{
+    let $output := 
       for $candidate at $idx in cts:search(fn:collection($col),$treatedQuery)[$start to ($lastIndex)]
       let $candidateUri := fn:base-uri($candidate)
       let $status :=
-        if (($idx mod 10000) eq 0) then
+        if (($idx mod 1000) eq 0) then
           (: Log status :)
           (
             xdmp:log($ticket || ":" || $pid || ":status: at index " || xs:string($idx) || " of " || xs:string($size))
@@ -75,12 +75,12 @@ declare function m:findKNearestNeighbourEuclideanBegin($ticket as xs:string,$pid
           )
         else ()
       return (
-        <match>
+        <result>
           <candidate>{$candidateUri}</candidate>
           <matches>{m:findKNearestNeighbourEuclidean($candidate,$k,$col,$untreatedQuery,$nsarray,$fieldpaths)}</matches>
-        </match>
+        </result>
         )
-      }</knn-result>
+
 
     let $finishLog := tu:ticket-update($ticket,$pid,$size,$lastIndex - $start + 1,$lastIndex - $start + 1,$output)
 

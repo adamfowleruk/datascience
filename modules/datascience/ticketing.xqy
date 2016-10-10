@@ -36,3 +36,17 @@ declare function m:ticket-progress($ticket as xs:string) as node() {
    }</percent-complete>
   </ticket-progress>
 };
+
+declare function m:ticket-list($ticket as xs:string) as node()* {
+  fn:collection("/datascience/tickets")/ticket[./id eq $ticket]
+};
+
+(: TODO warning if still running :)
+declare function m:ticket-output($ticket as xs:string) as node() {
+  <output>
+  {
+    for $ticket in m:ticket-list($ticket)
+    return $ticket/return-value/*
+  }
+  </output>
+};

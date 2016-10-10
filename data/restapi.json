@@ -1,0 +1,9 @@
+{
+  "extensions": [
+    {"name": "ticketing", "methods": ["GET"]},
+    {"name": "knn", "methods": ["GET","POST"]}
+  ],
+  "transforms": [],
+  "triggers": [
+  ]
+}
