@@ -81,7 +81,7 @@ declare function m:findKNearestNeighbourEuclideanBegin($ticket as xs:string,$pid
       return (
         <result>
           <candidate>{$candidateUri}</candidate>
-          <matches>{m:findKNearestNeighbourEuclidean($candidate,$k,$sr,$nsarray,$fieldpaths)}</matches>
+          <matches>{fn:string-join(m:findKNearestNeighbourEuclidean($candidate,$k,$sr,$nsarray,$fieldpaths)," ")}</matches>
         </result>
         )
 
@@ -133,7 +133,7 @@ declare function m:abs($in as xs:double) as xs:double {
  :)
 declare function m:findKNearestNeighbourEuclidean($doc as node(),$k as xs:positiveInteger,
   $sr,
-  $nsarray as xs:string*,$fieldpaths as xs:string+) as xs:string? {
+  $nsarray as xs:string*,$fieldpaths as xs:string+) as xs:string* {
   (: For given document and specified parameters, find it's nearest neighbour in the provided query set :)
   let $map := map:map()
   let $_ := map:put($map,"bestinversedistance",0.0) (: larger distance is bad (inverse) :)
@@ -164,8 +164,22 @@ declare function m:findKNearestNeighbourEuclidean($doc as node(),$k as xs:positi
       (: Just two fields for now, using euclidean distance :)
 
     return
-      if (map:get($map,"bestinversedistance") lt $score) then
-        (map:put($map,"bestinversedistance",$score), map:put($map,"besturi",fn:base-uri($res)) )
+      if (map:get($map,"bestinversedistance")[1] lt $score) then
+        (: Below is commented out as it only works for k=1 :)
+        (: (map:put($map,"bestinversedistance",$score), map:put($map,"besturi",fn:base-uri($res)) ) :)
+        let $distances := map:get($map,"bestinversedistance")
+        return
+          if (fn:count($distances) lt $k) then
+            (
+              map:put($map,"bestinversedistance",($distances,$score) ),
+              map:put($map,"besturi",(map:get($map,"besturi"),fn:base-uri($res)) )
+            )
+          else (: Already filled the map to $k size :)
+            (
+              map:put($map,"bestinversedistance",($distances[2 to $k],$score) ),
+              map:put($map,"besturi",(map:get($map,"besturi")[2 to $k],fn:base-uri($res)) )
+            )
+
       else ()
   return (map:get($map,"besturi") (:,map:get($map,"bestinversedistance") :) (:,xs:double($res/age):) )
 };
