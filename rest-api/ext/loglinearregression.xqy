@@ -108,6 +108,7 @@ function ext:post(
         else
           let $config := json:config("custom")
           let $cx := map:put($config, "text-value", "label" )
+          let $cx := map:put($config, "array-element-names", ("result") )
           let $cx := map:put($config , "camel-case", fn:true() )
           return
             json:transform-to-json($out, $config)

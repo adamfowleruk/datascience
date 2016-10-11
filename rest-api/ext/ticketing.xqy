@@ -33,7 +33,7 @@ declare namespace rapi = "http://marklogic.com/rest-api";
    let $out := t:ticket-output($ticket)
 
    let $_ := xdmp:log($out)
-   
+
    return
    (
      map:put($context, "output-types", "text/xml"),
@@ -45,6 +45,7 @@ declare namespace rapi = "http://marklogic.com/rest-api";
                $out
              else
                let $config := json:config("custom")
+               let $cx := map:put($config, "array-element-names", ("result") )
                let $cx := map:put($config, "text-value", "label" )
                let $cx := map:put($config , "camel-case", fn:true() )
                return
