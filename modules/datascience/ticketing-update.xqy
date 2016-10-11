@@ -12,9 +12,9 @@ declare function m:ticket-update($ticket as xs:string,$pid as xs:positiveInteger
       "/datascience/tickets/" || $ticket || "/" || xs:string($pid) || ".xml",
       <ticket><id>{$ticket}</id><pid>{$pid}</pid><size>{$size}</size>
       <total>{$mytotal}</total><complete>{$mycomplete}</complete>
-      <finished>{
+      <completed>{
         if ($mytotal eq $mycomplete) then fn:true() else fn:false()
-        }</finished>
+        }</completed>
       {
         if (0 eq $mycomplete) then
           <started>{fn:current-dateTime()}</started>

@@ -1,7 +1,8 @@
 {
   "extensions": [
     {"name": "ticketing", "methods": ["GET"]},
-    {"name": "knn", "methods": ["GET","POST"]}
+    {"name": "knn", "methods": ["GET","POST"]},
+    {"name": "loglinearregression", "methods": ["GET","POST"]}
   ],
   "transforms": [],
   "triggers": [

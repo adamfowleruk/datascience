@@ -57,7 +57,11 @@ declare function m:findKNearestNeighbourEuclideanBegin($ticket as xs:string,$pid
 
     let $initLog := tu:ticket-update($ticket,$pid,$size,$lastIndex - $start + 1,0,())
 
-    let $output := 
+    let $sr := cts:search(fn:collection($col),
+      $untreatedQuery
+    ,("unfiltered","score-zero","unfaceted")) (: Cache query output - saves n times time :)
+
+    let $output :=
       for $candidate at $idx in cts:search(fn:collection($col),$treatedQuery)[$start to ($lastIndex)]
       let $candidateUri := fn:base-uri($candidate)
       let $status :=
@@ -77,7 +81,7 @@ declare function m:findKNearestNeighbourEuclideanBegin($ticket as xs:string,$pid
       return (
         <result>
           <candidate>{$candidateUri}</candidate>
-          <matches>{m:findKNearestNeighbourEuclidean($candidate,$k,$col,$untreatedQuery,$nsarray,$fieldpaths)}</matches>
+          <matches>{m:findKNearestNeighbourEuclidean($candidate,$k,$sr,$nsarray,$fieldpaths)}</matches>
         </result>
         )
 
@@ -119,12 +123,16 @@ declare function m:findKNearestNeighbourEuclideanRI($doc as node(),$col as xs:st
   return (fn:base-uri($res) (: ,cts:score($res) :) (:,xs:double($res/age):) )
 };
 
+declare function m:abs($in as xs:double) as xs:double {
+  if ($in lt 0.0) then -1.0 * $in else $in
+};
+
 (:
  : Performs a nearest neighbour search for a single candidate document ($doc), against all records
  : in MarkLogic that match the untreated query.
  :)
 declare function m:findKNearestNeighbourEuclidean($doc as node(),$k as xs:positiveInteger,
-  $col as xs:string,$untreatedQuery as cts:query,
+  $sr,
   $nsarray as xs:string*,$fieldpaths as xs:string+) as xs:string? {
   (: For given document and specified parameters, find it's nearest neighbour in the provided query set :)
   let $map := map:map()
@@ -133,9 +141,7 @@ declare function m:findKNearestNeighbourEuclidean($doc as node(),$k as xs:positi
   let $count := fn:count($fieldpaths)
   let $denominator := -1.0 * $count
   let $_ :=
-    for $res in cts:search(fn:collection($col),
-      $untreatedQuery
-    ,("unfiltered","score-zero","unfaceted")) (: manual score calculation = no range indexes required :)
+    for $res in $sr (: manual score calculation = no range indexes required :)
     let $score := math:pow(
       fn:fold-left(function($z, $a) { $z * $a } ,1,
         for $field in $fieldpaths
@@ -148,7 +154,7 @@ declare function m:findKNearestNeighbourEuclidean($doc as node(),$k as xs:positi
         let $fieldVal := xs:double(xdmp:with-namespaces($nsarray,xdmp:unpath("$res" || $field)))
         let $docVal := xs:double(xdmp:with-namespaces($nsarray,xdmp:unpath("$doc" || $field)))
         :)
-        return 1.0 + (math:fabs($fieldVal - $docVal))
+        return 1.0 + (fn:abs($fieldVal - $docVal))
       ), $denominator)
 
 (:
