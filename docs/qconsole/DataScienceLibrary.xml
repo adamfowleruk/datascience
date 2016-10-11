@@ -1,0 +1,135 @@
+<export><workspace name="DataScienceLibrary"><query name="005udf Linear Regression" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+
+import module namespace reg="http://marklogic.com/datascience/regression" at "/datascience/regression.xqy";
+
+reg:regression-linear-udf("zoo",cts:true-query(),(),"age","iq")
+</query><query name="006x Log Linear Regression" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+
+import module namespace reg="http://marklogic.com/datascience/regression" at "/datascience/regression.xqy";
+
+reg:regression-log-linear("zoo",cts:true-query(),(),"age","weight")
+</query><query name="test" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+let $doc := &lt;doc&gt;&lt;el1&gt;val1&lt;/el1&gt;&lt;el2&gt;val2&lt;/el2&gt;&lt;/doc&gt;
+let $el := "el2"
+return $doc/*[./local-name()=$el]</query><query name="006udf Log Linear" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+
+import module namespace reg="http://marklogic.com/datascience/regression" at "/datascience/regression.xqy";
+
+reg:regression-log-linear-udf("zoo",cts:true-query(),(),"age","iq")
+</query><query name="009x kNN spawned" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+
+
+import module namespace knn="http://marklogic.com/datascience/nn-k" at "/datascience/nn-k.xqy";
+
+declare option xdmp:update "true";
+
+(:
+knn:nn-k-spawn(1,"zoo",cts:json-property-value-query("family","Malfoys"),cts:json-property-value-query("family","Potters"),(),("age","weight"))
+:)
+
+knn:nn-k-spawn(1,"zoo",
+    cts:json-property-value-query("family","Malfoys"),
+    cts:json-property-value-query("family","Potters")
+  ,(),("age","weight"))
+  
+(:
+knn:nn-k-spawn(1,"zoo",
+  cts:and-query((
+    cts:json-property-value-query("family","Malfoys")
+    ,
+    cts:json-property-range-query("age","&lt;",10)
+  )),
+  cts:and-query((
+    cts:json-property-value-query("family","Potters")
+    ,
+    cts:json-property-range-query("age","&lt;",10)
+  ))
+  ,(),("age","weight"))
+:)</query><query name="010 Ticket Progress" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+
+import module namespace t="http://marklogic.com/datascience/ticketing" at "/datascience/ticketing.xqy";
+
+t:ticket-progress("2016-10-11T07:08:45.300828-07:00-6127636405619265129")
+</query><query name="011 Ticket List" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+fn:collection("/datascience/tickets")/ticket[./id eq "2016-10-11T07:08:45.300828-07:00-6127636405619265129"]</query><query name="012 Ticket Get" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+let $id := "2016-10-10T00:42:33.162544-07:00-10050758530272447794"
+return
+(
+fn:doc("/datascience/tickets/" || $id || "/1.xml"),
+fn:doc("/datascience/tickets/" || $id || "/2.xml"),
+fn:doc("/datascience/tickets/" || $id || "/3.xml"),
+fn:doc("/datascience/tickets/" || $id || "/4.xml")
+)</query><query name="t1 Show queries" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+&lt;xml&gt;{(
+  cts:and-query((
+    cts:json-property-value-query("family","Malfoys")
+    ,
+    cts:json-property-range-query("age","&lt;",10)
+  )),
+  cts:and-query((
+    cts:json-property-value-query("family","Potters")
+    ,
+    cts:json-property-range-query("age","&lt;",10)
+  ))
+  )}&lt;/xml&gt;/*</query><query name="013 ticket output" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+
+import module namespace t="http://marklogic.com/datascience/ticketing" at "/datascience/ticketing.xqy";
+
+t:ticket-output("2016-10-10T08:57:38.934181-07:00-8238123191290857210")</query><query name="009x match speed" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+
+import module namespace knn="http://marklogic.com/datascience/nn-k" at "/datascience/nn-k.xqy";
+
+declare option xdmp:update "true";
+
+for $doc in cts:search(fn:collection("zoo"),cts:and-query((
+    cts:json-property-value-query("family","Malfoys")
+    ,cts:json-property-range-query("age","&lt;",10)
+  )))[1 to 10]
+return
+  knn:findKNearestNeighbourEuclidean(
+    $doc,1,
+  "zoo",
+    cts:json-property-value-query("family","Potters")
+  ,
+  (),("age","weight"))</query><query name="009x search speed" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+let $qn := xs:QName("age")
+return
+  for $d in cts:search(fn:collection("zoo"), cts:json-property-value-query("family", "Potters", ("lang=en"), 1), ("unfiltered", "score-zero", "unfaceted"))
+  let $n := $d/*[node-name(.) eq $qn] 
+  return ()</query><query name="loop perf" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+
+  for $cnt in (1 to 10)
+  return
+    cts:search(fn:collection("zoo"), cts:json-property-value-query("family", "Potters", ("lang=en"), 1), ("unfiltered", "score-zero", "unfaceted"))[1]</query><query name="009x search comp" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+import module namespace knn="http://marklogic.com/datascience/nn-k" at "/datascience/nn-k.xqy";
+knn:findKNearestNeighbourEuclideanBegin("1",1,1,1,100,100,"zoo",
+  cts:and-query((
+    cts:json-property-value-query("family","Malfoys")
+    ,
+    cts:json-property-range-query("age","&lt;",10)
+  )),
+  cts:and-query((
+    cts:json-property-value-query("family","Potters")
+    ,
+    cts:json-property-range-query("age","&lt;",10)
+  ))
+  ,(),("age","weight") )</query><query name="double comp" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+let $d1 := 3.456778
+let $d2 := 2.34567
+(:
+return fn:abs($d1 - $d2)
+:)
+return if ($d1 lt $d2) then $d2 - $d1 else $d1 - $d2
+</query><query name="latest ticket" focus="true" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+for $ticket in fn:collection("/datascience/tickets")/ticket[./pid="1"]
+order by $ticket/started descending
+return $ticket</query><query name="est" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+xdmp:estimate(cts:search(fn:collection("zoo"),cts:and-query((
+    cts:json-property-value-query("family","Malfoys")
+    ,
+    cts:json-property-range-query("age","&lt;",20)
+  ))))</query><query name="maps" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+let $map:= map:map()
+let $_ := map:put($map,"somekey",xs:double(1.2345))
+return &lt;xml&gt;{$map}&lt;/xml&gt;/map:map/map:entry</query><query name="del true" focus="false" active="true" content-source="as:4522790676736030483:" mode="xquery">xquery version "1.0-ml";
+xdmp:node-delete(fn:collection("/datascience/tickets")/ticket/finished[. = "true"])</query></workspace></export>
