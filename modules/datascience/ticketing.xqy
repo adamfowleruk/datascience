@@ -26,6 +26,9 @@ declare function m:ticket-progress($ticket as xs:string) as node() {
       else (),
       if (fn:empty(map:get($map,"endtime")) or (xs:dateTime(map:get($map,"endtime")) lt xs:dateTime($doc/finished))) then
         map:put($map,"endtime",xs:dateTime($doc/finished))
+      else (),
+      if (fn:empty(map:get($map,"durationseconds")) or (xs:double(map:get($map,"durationseconds")) lt xs:double($doc/duration-seconds))) then
+        map:put($map,"durationseconds",xs:double($doc/duration-seconds))
       else ()
     )
   return
@@ -33,7 +36,11 @@ declare function m:ticket-progress($ticket as xs:string) as node() {
    <total>{map:get($map,"total")}</total>
    <complete>{map:get($map,"complete")}</complete>
    <started>{map:get($map,"starttime")}</started>
-   <finished>{map:get($map,"endtime")}</finished>
+   { if (fn:not(fn:empty(map:get($map,"endtime")))) then
+     (<finished>{map:get($map,"endtime")}</finished>,
+     <duration>{xs:dateTime(map:get($map,"endtime")) - xs:dateTime(map:get($map,"starttime")) }</duration>)
+    else () }
+   <duration-seconds>{map:get($map,"durationseconds")}</duration-seconds>
    <rate-per-second>{xs:double(map:get($map,"rate"))}</rate-per-second>
    <percent-complete>{(math:floor(
     if (0 eq map:get($map,"total")) then

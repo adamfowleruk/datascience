@@ -22,6 +22,11 @@ declare function m:ticket-update($ticket as xs:string,$pid as xs:positiveInteger
           let $started := xs:dateTime(fn:doc("/datascience/tickets/" || $ticket || "/" || xs:string($pid) || ".xml")/ticket/started)
           let $now := fn:current-dateTime()
           let $duration := $now - $started
+          let $durationSeconds :=
+            fn:seconds-from-duration($duration) +
+            (fn:minutes-from-duration($duration) * 60) +
+            (fn:hours-from-duration($duration) * 3600) +
+            (fn:days-from-duration($duration) * 86400)
           return
           (
             <started>{$started}</started>
@@ -32,9 +37,10 @@ declare function m:ticket-update($ticket as xs:string,$pid as xs:positiveInteger
               )
             else ()
             ,
-            <rate-per-second>{$mycomplete div fn:seconds-from-duration($duration)}</rate-per-second>
+            <rate-per-second>{$mycomplete div $durationSeconds}</rate-per-second>
             ,
-            <duration>{$duration}</duration>
+            <duration>{$duration}</duration>,
+            <duration-seconds>{$durationSeconds}</duration-seconds>
           )
         }
         {
