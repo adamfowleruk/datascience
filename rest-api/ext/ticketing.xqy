@@ -26,7 +26,53 @@ declare namespace rapi = "http://marklogic.com/rest-api";
      let $_ := xdmp:log($params)
      let $_ := xdmp:log($context)
 
-   let $ticket := map:get($params,"ticket")
+  let $out := <output>
+      <result><name>ticket</name><reference>IN</reference><type>xs:string</type><cardinality>1</cardinality></result>
+
+      <result><name>document</name><reference>OUT</reference><type>application/xml</type><cardinality>1</cardinality></result>
+    </output>
+
+   let $_ := xdmp:log($out)
+
+   return
+   (
+     map:put($context, "output-types", "text/xml"),
+     xdmp:set-response-code(200, "OK"),
+
+     document {
+
+             if ("application/xml" = $preftype) then
+               $out
+             else
+               let $config := json:config("custom")
+               let $cx := map:put($config, "array-element-names", ("result") )
+               let $cx := map:put($config, "text-value", "label" )
+               let $cx := map:put($config , "camel-case", fn:true() )
+               return
+                 json:transform-to-json($out, $config)
+
+     }
+   )
+ };
+
+
+(: Retrieve a ticket's results.
+ : GET ?ticket=ticketid
+ :)
+ declare
+ %roxy:params("")
+ function ext:post(
+   $context as map:map,
+   $params  as map:map,
+   $input   as document-node()*
+ ) as document-node()*
+ {
+   let $preftype := if ("application/xml" = map:get($context,"accept-types")) then "application/xml" else "application/json"
+
+     let $_ := xdmp:log($params)
+     let $_ := xdmp:log($context)
+
+   let $ticket := xs:string($input/invoke/ticket) (:map:get($params,"ticket"):)
 
    let $_ := xdmp:log("Ticket: " || $ticket)
 

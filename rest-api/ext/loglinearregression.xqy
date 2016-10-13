@@ -23,13 +23,17 @@ function ext:get(
 {
   let $preftype := "application/xml" (: if ("application/xml" = map:get($context,"accept-types")) then "application/xml" else "application/json" :)
 
-  let $out := <output><result><name>loglinearregression</name>
-    <parameters>
-      <parameter name="collection" type="xs:uri" />
-      <parameter name="query" type="cts:query" />
-      <parameter name="nsarray" type="xs:string" cardinality="*" />
-      <parameter name="fieldpaths" type="xs:string" cardinality="*" />
-    </parameters></result></output>
+  let $out := <output>
+      <result><name>collection</name><reference>IN</reference><type>xs:uri</type><cardinality>1</cardinality></result>
+      <result><name>query</name><reference>IN</reference><type>cts:query</type><cardinality>1</cardinality></result>
+      <result><name>nsarray</name><reference>IN</reference><type>xs:uri</type><cardinality>*</cardinality></result>
+      <result><name>fieldpaths</name><reference>IN</reference><type>xs:string</type><cardinality>+</cardinality></result>
+
+      <result><name>intercept</name><reference>OUT</reference><type>xs:double</type><cardinality>1</cardinality></result>
+      <result><name>gradient</name><reference>OUT</reference><type>xs:double</type><cardinality>1</cardinality></result>
+      <result><name>formula</name><reference>OUT</reference><type>xs:string</type><cardinality>1</cardinality></result>
+      <result><name>count</name><reference>OUT</reference><type>xs:long</type><cardinality>1</cardinality></result>
+    </output>
   return
   (
     map:put($context, "output-types", "text/xml"),

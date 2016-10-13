@@ -23,15 +23,17 @@ function ext:get(
 {
   let $preftype := "application/xml" (: if ("application/xml" = map:get($context,"accept-types")) then "application/xml" else "application/json" :)
 
-  let $out := <output><result><name>knn</name>
-    <parameters>
-      <parameter name="k" type="xs:int" />
-      <parameter name="collection" type="xs:uri" />
-      <parameter name="treatedQuery" type="cts:query" />
-      <parameter name="untreatedQuery" type="cts:query" />
-      <parameter name="nsarray" type="xs:string" cardinality="*" />
-      <parameter name="fieldpaths" type="xs:string" cardinality="*" />
-    </parameters></result></output>
+  let $out := <output>
+    <result><name>k</name><reference>IN</reference><type>xs:int</type><cardinality>1</cardinality></result>
+    <result><name>collection</name><reference>IN</reference><type>xs:uri</type><cardinality>1</cardinality></result>
+    <result><name>treatedQuery</name><reference>IN</reference><type>cts:query</type><cardinality>1</cardinality></result>
+    <result><name>untreatedQuery</name><reference>IN</reference><type>cts:query</type><cardinality>1</cardinality></result>
+    <result><name>nsarray</name><reference>IN</reference><type>xs:uri</type><cardinality>*</cardinality></result>
+    <result><name>fieldpaths</name><reference>IN</reference><type>xs:string</type><cardinality>+</cardinality></result>
+
+    <result><name>ticket</name><reference>OUT</reference><type>xs:string</type><cardinality>1</cardinality></result>
+    </output>
+
   return
   (
     map:put($context, "output-types", "text/xml"),
@@ -44,6 +46,7 @@ function ext:get(
             else
               let $config := json:config("custom")
               let $cx := map:put($config, "text-value", "label" )
+              let $cx := map:put($config, "array-element-names", ("result") )
               let $cx := map:put($config , "camel-case", fn:true() )
               return
                 json:transform-to-json($out, $config)
