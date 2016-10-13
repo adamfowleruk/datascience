@@ -53,3 +53,9 @@ The following are implemented on top of MarkLogic Server by this project:-
 Geospatial analytics functions are currently out of scope for this project, but may be added in future.
 
 If there are any functions you wish were implemented, please add an Issue on GitHub.
+
+## Design
+
+There is not a lot of design documentation yet. Below is what is currently available:-
+
+- [REST Stored Procedure Pattern](./docs/pattern-reststoredprocedure.md)
