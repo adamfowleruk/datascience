@@ -5,10 +5,10 @@
 	"order": [
 		"00e8f8e2-bd5b-8392-a8d4-a74a4c3ee4aa",
 		"1cebec7c-8d3c-58d7-1d3d-56a7edcd53ec",
-		"df19cd83-5daa-f396-c838-9b130b3f39bc",
+		"1286b09f-636a-e423-b463-d34d0ab69856",
 		"007b0ea3-dc2c-a6ee-0ad6-59e127a95958",
-		"9fc187bd-2d29-c2f6-1620-776364a01d98",
-		"1286b09f-636a-e423-b463-d34d0ab69856"
+		"df19cd83-5daa-f396-c838-9b130b3f39bc",
+		"9fc187bd-2d29-c2f6-1620-776364a01d98"
 	],
 	"folders": [],
 	"timestamp": 1476117068852,
@@ -119,7 +119,7 @@
 		},
 		{
 			"id": "df19cd83-5daa-f396-c838-9b130b3f39bc",
-			"headers": "Authorization: Digest username=\"admin\", realm=\"public\", nonce=\"1\", uri=\"/v1/resources/ticketing?rs:ticket=2016-10-10T08:57:38.934181-07:00-8238123191290857210\", response=\"3eb789ea422278c2d119af169114c224\", opaque=\"\"\nAccept: application/xml\n",
+			"headers": "Authorization: Digest username=\"admin\", realm=\"public\", nonce=\"1\", uri=\"/v1/resources/ticketing\", response=\"dd19875f07c661d70f9e12b91cf1c87f\", opaque=\"\"\nAccept: application/xml\n",
 			"url": "192.168.123.4:7094/v1/resources/ticketing",
 			"preRequestScript": null,
 			"pathVariables": {},
@@ -130,7 +130,7 @@
 			"tests": null,
 			"currentHelper": "normal",
 			"helperAttributes": {},
-			"time": 1476376001260,
+			"time": 1476392576872,
 			"name": "192.168.123.4:7094/v1/resources/ticketing?rs:ticket=2016-10-10T08:57:38.934181-07:00-8238123191290857210",
 			"description": "Fetches a ticket's result(s)",
 			"collectionId": "087ca153-05ff-79f4-207e-8bb174fedf92",
