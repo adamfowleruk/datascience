@@ -48,6 +48,7 @@ The following are implemented on top of MarkLogic Server by this project:-
 - kNN in XQuery using search scoring to determine euclidean distance (requires range indexes)
 - kNN in XQuery using manual euclidean calculation
 - kNN in XQuery using manual euclidean calculation, but parallelised to match more ‘treated’ results in parallel on multi core machines
+- kNN in XQuery using UDF euclidean calculation, with parallelisation of outer loop using XQuery, as above
 - A Group by UDF that allows Mean and Sum to be calculated but summarised by category
 
 Geospatial analytics functions are currently out of scope for this project, but may be added in future.

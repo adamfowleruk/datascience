@@ -183,3 +183,129 @@ declare function m:findKNearestNeighbourEuclidean($doc as node(),$k as xs:positi
       else ()
   return (map:get($map,"besturi") (:,map:get($map,"bestinversedistance") :) (:,xs:double($res/age):) )
 };
+
+
+
+
+(: UDF FUNCTIONS :)
+
+
+
+
+
+
+
+(: This implementation does not use range indexes, but does parallelise the work, with
+ : each of 4 threads processing 1/4 of the 'treated' results to match
+ :)
+declare function m:nn-k-spawn-udf($k as xs:positiveInteger,$col as xs:string,
+  $treatedQuery as cts:query,$untreatedQuery as cts:query,
+  $nsarray as xs:string*,$fieldpaths as xs:string+) as xs:string {
+
+  (: create ticket :)
+  let $ticket := t:ticket-create()
+  (: Set up function :)
+  let $maxThreads := 9 (: TODO discover this from the current system itself :)
+  let $max := xdmp:estimate(cts:search(fn:collection($col),$treatedQuery))
+  let $size := xs:positiveInteger(math:ceil($max div $maxThreads))
+  (: spawn function :)
+  let $spawns :=
+    for $pid in (1 to $maxThreads)
+    return xdmp:spawn-function(
+      function() {(
+        xdmp:log("findNearestNeighbourEuclideanSpawned:spawn-begin:" || xs:string($pid)),
+        xdmp:log(m:findKNearestNeighbourEuclideanUDFBegin($ticket,$pid,$k,xs:positiveInteger(1 + (($pid - 1) * $size)),$size,$max,$col,$treatedQuery,$untreatedQuery,$nsarray,$fieldpaths)),
+        xdmp:log("findNearestNeighbourEuclideanSpawned:spawn-end:" || xs:string($pid))
+      )},
+        <options xmlns="xdmp:eval">
+          <database>{xdmp:database()}</database>
+          <transaction-mode>update</transaction-mode>
+        </options>
+
+    )
+  (: return ticket :)
+  return $ticket
+};
+
+declare function m:findKNearestNeighbourEuclideanUDFBegin($ticket as xs:string,$pid as xs:positiveInteger,
+  $k as xs:positiveInteger,
+  $start as xs:positiveInteger,$size as xs:int,$max as xs:int,
+  $col as xs:string,$treatedQuery as cts:query,$untreatedQuery as cts:query,$nsarray as xs:string*,$fieldpaths as xs:string+) {
+  if ($start gt $max) then () else
+    let $calcIndex := $size + $start - 1
+    let $lastIndex :=
+      if ($calcIndex gt $max) then $max else $calcIndex
+
+    let $_ := xdmp:log("thread " || xs:string($pid) || " of ticket " || $ticket || ":start=" || xs:string($start) ||
+      ",size=" || xs:string($size) || ",max=" || xs:string($max))
+
+    let $initLog := tu:ticket-update($ticket,$pid,$size,$lastIndex - $start + 1,0,())
+(:
+    let $sr := cts:search(fn:collection($col),
+      $untreatedQuery
+    ,("unfiltered","score-zero","unfaceted")) (: Cache query output - saves n times time :)
+:)
+    let $output :=
+      for $candidate at $idx in cts:search(fn:collection($col),$treatedQuery)[$start to ($lastIndex)]
+      let $candidateUri := fn:base-uri($candidate)
+      let $status :=
+        if (($idx mod 1000) eq 0) then
+          (: Log status :)
+          (
+            xdmp:log($ticket || ":" || $pid || ":status: at index " || xs:string($idx) || " of " || xs:string($size))
+
+
+            ,
+            (: TODO also update progress document in database :)
+            (: WARNING if we do this, this entire module will be an update module... :)
+            tu:ticket-update($ticket,$pid,$size,$lastIndex - $start + 1,$lastIndex - $start + $idx - 2,()) (: -2 as we've not done this one yet :)
+
+          )
+        else ()
+      return (
+        <result>
+          <candidate>{$candidateUri}</candidate>
+          <matches>{fn:string-join(m:findKNearestNeighbourEuclideanUDF($candidate,$col,$k,$untreatedQuery,$nsarray,$fieldpaths)," ")}</matches>
+        </result>
+        )
+
+
+    let $finishLog := tu:ticket-update($ticket,$pid,$size,$lastIndex - $start + 1,$lastIndex - $start + 1,$output)
+
+    (: TODO log progress regularly and at the end of the run :)
+    return ()
+};
+
+declare function m:findKNearestNeighbourEuclideanUDF($doc as node(),$col as xs:string,$k as xs:positiveInteger,
+  $queryUntreated as cts:query,$nsarray as xs:string*,$fieldpaths as xs:string+) as xs:string* {
+  let $docValues := (
+    fn:base-uri($doc),
+    $k,
+    for $field in $fieldpaths
+    let $fp := xs:QName($field)
+    let $val := $doc/*[node-name(.) eq $fp]
+    return xs:double($val)
+  )
+  (:
+  let $_ := xdmp:log("DOC VALUES FOR KNN UDF:-")
+  let $_ := xdmp:log($docValues)
+  :)
+  let $references :=
+    for $field in $fieldpaths
+    let $fp := xs:QName($field)
+    return cts:element-reference(xdmp:with-namespaces($nsarray,$fp))
+
+  let $udfResult := cts:aggregate(
+    "native/knn",
+    "knn",
+    (
+      (: uri lexicon reference first :)
+      cts:uri-reference()
+      ,
+      $references
+    ),  $docValues, ("fragment-frequency"),
+    cts:and-query((cts:collection-query($col),$queryUntreated))
+  )
+  let $uris := $udfResult (: result only - is a list of URIs anyway :)
+  return $uris
+};
