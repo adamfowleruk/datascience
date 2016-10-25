@@ -11,18 +11,25 @@ declare function m:ticket-progress($ticket as xs:string) as node() {
   let $_ := (
     map:put($map,"total",0),
     map:put($map,"complete",0),
-    map:put($map,"rate",0.0)
+    map:put($map,"rate",0.0),
+    map:put($map,"numendtimes",0),
+    map:put($map,"numtickets",0)
   )
   let $tickets := fn:collection("/datascience/tickets")/ticket[./id eq $ticket]
   let $count := fn:count($tickets)
   let $_ :=
     for $doc in $tickets
     return (
+      map:put($map,"numtickets",map:get($map,"numtickets") + 1),
       map:put($map,"total",map:get($map,"total") + $doc/total),
       map:put($map,"complete",map:get($map,"complete") + $doc/complete),
       map:put($map,"rate",map:get($map,"rate") + (if (fn:not(fn:empty($doc/rate-per-second))) then $doc/rate-per-second else 0.0)),
       if (fn:empty(map:get($map,"starttime")) or (xs:dateTime(map:get($map,"starttime")) gt xs:dateTime($doc/started))) then
         map:put($map,"starttime",xs:dateTime($doc/started))
+      else (),
+      if (fn:not(fn:empty($doc/finished))) then
+        (: Add to end time count :)
+        map:put($map,"numendtimes",map:get($map,"numendtimes") + 1)
       else (),
       if (fn:empty(map:get($map,"endtime")) or (xs:dateTime(map:get($map,"endtime")) lt xs:dateTime($doc/finished))) then
         map:put($map,"endtime",xs:dateTime($doc/finished))
@@ -36,7 +43,7 @@ declare function m:ticket-progress($ticket as xs:string) as node() {
    <total>{map:get($map,"total")}</total>
    <complete>{map:get($map,"complete")}</complete>
    <started>{map:get($map,"starttime")}</started>
-   { if (fn:not(fn:empty(map:get($map,"endtime")))) then
+   { if (map:get($map,"numtickets") eq map:get($map,"numendtimes") and fn:not(fn:empty(map:get($map,"endtime")))) then
      (<finished>{map:get($map,"endtime")}</finished>,
      <duration>{xs:dateTime(map:get($map,"endtime")) - xs:dateTime(map:get($map,"starttime")) }</duration>)
     else () }

@@ -21,7 +21,7 @@ declare function m:nn-k-spawn($k as xs:positiveInteger,$col as xs:string,
   (: create ticket :)
   let $ticket := t:ticket-create()
   (: Set up function :)
-  let $maxThreads := 9 (: TODO discover this from the current system itself :)
+  let $maxThreads := 8 (: TODO discover this from the current system itself :)
   let $max := xdmp:estimate(cts:search(fn:collection($col),$treatedQuery))
   let $size := xs:positiveInteger(math:ceil($max div $maxThreads))
   (: spawn function :)
@@ -53,7 +53,8 @@ declare function m:findKNearestNeighbourEuclideanBegin($ticket as xs:string,$pid
       if ($calcIndex gt $max) then $max else $calcIndex
 
     let $_ := xdmp:log("thread " || xs:string($pid) || " of ticket " || $ticket || ":start=" || xs:string($start) ||
-      ",size=" || xs:string($size) || ",max=" || xs:string($max))
+      ",size=" || xs:string($size) || ",max=" || xs:string($max) || ",calcIndex=" || xs:string($calcIndex) ||
+      ",lastIndex(now)=" || xs:string($lastIndex))
 
     let $initLog := tu:ticket-update($ticket,$pid,$size,$lastIndex - $start + 1,0,())
 
@@ -74,7 +75,7 @@ declare function m:findKNearestNeighbourEuclideanBegin($ticket as xs:string,$pid
             ,
             (: TODO also update progress document in database :)
             (: WARNING if we do this, this entire module will be an update module... :)
-            tu:ticket-update($ticket,$pid,$size,$lastIndex - $start + 1,$lastIndex - $start + $idx - 2,()) (: -2 as we've not done this one yet :)
+            tu:ticket-update($ticket,$pid,$size,$lastIndex - $start + 1,$idx  (:$lastIndex - $start + $idx - 2:),()) (: -2 as we've not done this one yet :)
 
           )
         else ()
@@ -205,7 +206,7 @@ declare function m:nn-k-spawn-udf($k as xs:positiveInteger,$col as xs:string,
   (: create ticket :)
   let $ticket := t:ticket-create()
   (: Set up function :)
-  let $maxThreads := 9 (: TODO discover this from the current system itself :)
+  let $maxThreads := 8 (: TODO discover this from the current system itself :)
   let $max := xdmp:estimate(cts:search(fn:collection($col),$treatedQuery))
   let $size := xs:positiveInteger(math:ceil($max div $maxThreads))
   (: spawn function :)
@@ -236,8 +237,9 @@ declare function m:findKNearestNeighbourEuclideanUDFBegin($ticket as xs:string,$
     let $lastIndex :=
       if ($calcIndex gt $max) then $max else $calcIndex
 
-    let $_ := xdmp:log("thread " || xs:string($pid) || " of ticket " || $ticket || ":start=" || xs:string($start) ||
-      ",size=" || xs:string($size) || ",max=" || xs:string($max))
+          let $_ := xdmp:log("thread " || xs:string($pid) || " of ticket " || $ticket || ":start=" || xs:string($start) ||
+            ",size=" || xs:string($size) || ",max=" || xs:string($max) || ",calcIndex=" || xs:string($calcIndex) ||
+            ",lastIndex(now)=" || xs:string($lastIndex))
 
     let $initLog := tu:ticket-update($ticket,$pid,$size,$lastIndex - $start + 1,0,())
 (:
@@ -258,7 +260,7 @@ declare function m:findKNearestNeighbourEuclideanUDFBegin($ticket as xs:string,$
             ,
             (: TODO also update progress document in database :)
             (: WARNING if we do this, this entire module will be an update module... :)
-            tu:ticket-update($ticket,$pid,$size,$lastIndex - $start + 1,$lastIndex - $start + $idx - 2,()) (: -2 as we've not done this one yet :)
+            tu:ticket-update($ticket,$pid,$size,$lastIndex - $start + 1,$idx (: no minus as assume we will finish :) (:$lastIndex - $start + $idx - 2:),()) (: -2 as we've not done this one yet :)
 
           )
         else ()

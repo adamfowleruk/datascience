@@ -3,7 +3,18 @@ xquery version "1.0-ml";
 (: Ticketing functions that do require a document update :)
 module namespace m="http://marklogic.com/datascience/ticketing-update";
 
-declare option xdmp:update "true";
+(:declare option xdmp:update "true";:)
+
+declare function m:get-now() {
+  xdmp:invoke-function(function() {
+    fn:current-dateTime()
+  },
+    <options xmlns="xdmp:eval">
+      <database>{xdmp:database()}</database>
+      <transaction-mode>query</transaction-mode>
+      <isolation>different-transaction</isolation>
+    </options>)
+};
 
 declare function m:ticket-update($ticket as xs:string,$pid as xs:positiveInteger,
   $size as xs:int,$mytotal as xs:int,$mycomplete as xs:int,$output as node()*) {
@@ -20,13 +31,16 @@ declare function m:ticket-update($ticket as xs:string,$pid as xs:positiveInteger
           <started>{fn:current-dateTime()}</started>
         else
           let $started := xs:dateTime(fn:doc("/datascience/tickets/" || $ticket || "/" || xs:string($pid) || ".xml")/ticket/started)
-          let $now := fn:current-dateTime()
+          let $now := m:get-now()
           let $duration := $now - $started
           let $durationSeconds :=
             fn:seconds-from-duration($duration) +
             (fn:minutes-from-duration($duration) * 60) +
             (fn:hours-from-duration($duration) * 3600) +
             (fn:days-from-duration($duration) * 86400)
+            (:)
+          let $durationSeconds :=
+            if (0 = $durationSeconds) then xdmp:elapsed-time() else $durationSeconds :)
           return
           (
             <started>{$started}</started>
