@@ -5,6 +5,10 @@ module namespace ext = "http://marklogic.com/rest-api/resource/loglinearregressi
 import module namespace json = "http://marklogic.com/xdmp/json" at "/MarkLogic/json/json.xqy";
 
 import module namespace reg="http://marklogic.com/datascience/regression" at "/datascience/regression.xqy";
+import module namespace config-query = "http://marklogic.com/rest-api/models/config-query"
+    at "/MarkLogic/rest-api/models/config-query-model.xqy";
+import module namespace search="http://marklogic.com/appservices/search"
+    at "/MarkLogic/appservices/search/search.xqy";
 
 declare namespace roxy = "http://marklogic.com/roxy";
 declare namespace map = "http://marklogic.com/xdmp/map";
@@ -25,7 +29,7 @@ function ext:get(
 
   let $out := <output>
       <result><name>collection</name><reference>IN</reference><type>xs:uri</type><cardinality>1</cardinality></result>
-      <result><name>query</name><reference>IN</reference><type>cts:query</type><cardinality>1</cardinality></result>
+      <result><name>query</name><reference>IN</reference><type>search:query</type><cardinality>1</cardinality></result>
       <result><name>nsarray</name><reference>IN</reference><type>xs:uri</type><cardinality>*</cardinality></result>
       <result><name>fieldpaths</name><reference>IN</reference><type>xs:string</type><cardinality>+</cardinality></result>
 
@@ -62,7 +66,7 @@ function ext:get(
  : Parameters as post body
  : <invoke>
  :  <collection>mydataset</collection>
- :  <query><cts:collection-query>...</cts:collection-query></query>
+ :  <query>fammily:Malfoys AND age LT 10</query>
  :  <nsarray>ns1=http://some/ns ns2=http://some/other/ns</nsarray>
  :  <fieldpaths>age weight</fieldpaths>
  : </invoke>
@@ -90,8 +94,13 @@ function ext:post(
     return fn:tokenize($nspair,"=")
   let $fields := fn:tokenize($input/invoke/fieldpaths," ")
 
+  let $opts := config-query:get-options(xs:string($input/invoke/collection))
+  let $_ := xdmp:log($opts)
+
+  let $query := cts:query(search:parse(xs:string($input/invoke/query),$opts,"cts:query"))
+
   let $results := reg:regression-log-linear(xs:string($input/invoke/collection),
-    cts:query($input/invoke/query/element()),$nsarray,$fields[1],$fields[2])
+    $query,$nsarray,$fields[1],$fields[2])
 
   let $out := <output><result>{
     for $entry in <xml>{$results}</xml>/map:map/map:entry

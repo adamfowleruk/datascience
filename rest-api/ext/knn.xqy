@@ -32,8 +32,8 @@ function ext:get(
   let $out := <output>
     <result><name>k</name><reference>IN</reference><type>xs:int</type><cardinality>1</cardinality></result>
     <result><name>collection</name><reference>IN</reference><type>xs:uri</type><cardinality>1</cardinality></result>
-    <result><name>treatedQuery</name><reference>IN</reference><type>cts:query</type><cardinality>1</cardinality></result>
-    <result><name>untreatedQuery</name><reference>IN</reference><type>cts:query</type><cardinality>1</cardinality></result>
+    <result><name>treatedQuery</name><reference>IN</reference><type>search:query</type><cardinality>1</cardinality></result>
+    <result><name>untreatedQuery</name><reference>IN</reference><type>search:query</type><cardinality>1</cardinality></result>
     <result><name>nsarray</name><reference>IN</reference><type>xs:uri</type><cardinality>*</cardinality></result>
     <result><name>fieldpaths</name><reference>IN</reference><type>xs:string</type><cardinality>+</cardinality></result>
 
@@ -69,7 +69,7 @@ function ext:get(
  : <invoke>
  :  <k>1</k>
  :  <collection>mydataset</collection>
- :  <treatedQuery><cts:collection-query>...</cts:collection-query></treatedQuery>
+ :  <treatedQuery>family:Malfoys AND age LT 10</treatedQuery>
  :  <untreatedQuery>...</untreatedQuery>
  :  <nsarray>ns1=http://some/ns ns2=http://some/other/ns</nsarray>
  :  <fieldpaths>age weight iq</fieldpaths>
