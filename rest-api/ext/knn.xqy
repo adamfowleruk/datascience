@@ -6,9 +6,15 @@ import module namespace json = "http://marklogic.com/xdmp/json" at "/MarkLogic/j
 
 import module namespace knn="http://marklogic.com/datascience/nn-k" at "/datascience/nn-k.xqy";
 
+import module namespace config-query = "http://marklogic.com/rest-api/models/config-query"
+    at "/MarkLogic/rest-api/models/config-query-model.xqy";
+import module namespace search="http://marklogic.com/appservices/search"
+    at "/MarkLogic/appservices/search/search.xqy";
+
 declare namespace roxy = "http://marklogic.com/roxy";
 
 declare namespace rapi = "http://marklogic.com/rest-api";
+
 
 (:
  : Get the description of this stored procedure, its parameters, and return values
@@ -22,7 +28,7 @@ function ext:get(
 ) as document-node()*
 {
   let $preftype := "application/xml" (: if ("application/xml" = map:get($context,"accept-types")) then "application/xml" else "application/json" :)
-
+  let $_ := xdmp:log("knn REST extension called")
   let $out := <output>
     <result><name>k</name><reference>IN</reference><type>xs:int</type><cardinality>1</cardinality></result>
     <result><name>collection</name><reference>IN</reference><type>xs:uri</type><cardinality>1</cardinality></result>
@@ -92,8 +98,19 @@ function ext:post(
     return fn:tokenize($nspair,"=")
   let $fields := fn:tokenize($input/invoke/fieldpaths," ")
 
-  let $ticketid := knn:nn-k-spawn(xs:int($input/invoke/k),xs:string($input/invoke/collection),
-    cts:query($input/invoke/treatedQuery/element()),cts:query($input/invoke/untreatedQuery/element()),$nsarray,$fields)
+  let $opts := config-query:get-options(xs:string($input/invoke/collection))
+  let $_ := xdmp:log($opts)
+
+  let $treatedQuery := cts:query(search:parse(xs:string($input/invoke/treatedQuery),$opts,"cts:query"))
+  let $untreatedQuery := cts:query(search:parse(xs:string($input/invoke/untreatedQuery),$opts,"cts:query"))
+
+  let $_ := xdmp:log($treatedQuery)
+  let $_ := xdmp:log($untreatedQuery)
+
+  let $ticketid := knn:nn-k-spawn-udf(xs:int($input/invoke/k),xs:string($input/invoke/collection),
+    (:cts:query($input/invoke/treatedQuery/element()),cts:query($input/invoke/untreatedQuery/element()):)
+    $treatedQuery,$untreatedQuery
+    ,$nsarray,$fields)
 
   let $out := <output><result><ticket>{$ticketid}</ticket></result></output>
 

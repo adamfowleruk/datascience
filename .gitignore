@@ -1,6 +1,6 @@
 *.gml
 .DS_Store
-config
+./config
 *.o
 udfs/*/*.zip
 udfs/*/manifest.xml
