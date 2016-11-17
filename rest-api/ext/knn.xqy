@@ -27,7 +27,16 @@ function ext:get(
   $params  as map:map
 ) as document-node()*
 {
-  let $preftype := "application/xml" (: if ("application/xml" = map:get($context,"accept-types")) then "application/xml" else "application/json" :)
+  let $preftype :=
+    if (fn:not(fn:empty(map:get($params,"format")))) then
+      if ("json" = map:get($params,"format")) then
+        "application/json"
+      else
+        "application/xml"
+    else
+      if ("application/xml" = map:get($context,"accept-types")) then "application/xml" else "application/json"
+
+  (: if ("application/xml" = map:get($context,"accept-types")) then "application/xml" else "application/json" :)
   let $_ := xdmp:log("knn REST extension called")
   let $out := <output>
     <result><name>k</name><reference>IN</reference><type>xs:int</type><cardinality>1</cardinality></result>
@@ -42,7 +51,7 @@ function ext:get(
 
   return
   (
-    map:put($context, "output-types", "text/xml"),
+    map:put($context, "output-types", $preftype),
     xdmp:set-response-code(200, "OK"),
 
     document {
@@ -87,7 +96,14 @@ function ext:post(
     $input   as document-node()*
 ) as document-node()*
 {
-  let $preftype := if ("application/xml" = map:get($context,"accept-types")) then "application/xml" else "application/json"
+  let $preftype :=
+    if (fn:not(fn:empty(map:get($params,"format")))) then
+      if ("json" = map:get($params,"format")) then
+        "application/json"
+      else
+        "application/xml"
+    else
+      if ("application/xml" = map:get($context,"accept-types")) then "application/xml" else "application/json"
 
   let $_ := xdmp:log($params)
   let $_ := xdmp:log($context)
@@ -116,7 +132,7 @@ function ext:post(
 
   return
   (
-    map:put($context, "output-types", "application/json"),
+    map:put($context, "output-types", $preftype),
     xdmp:set-response-code(200, "OK"),
     document {
 

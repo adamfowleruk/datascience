@@ -83,6 +83,9 @@ declare function m:regression-log-linear($col as xs:string?,$query as cts:query?
         )
       else ()
     return ()
+
+  let $_ := xdmp:log($map)
+
   let $B := (($count * map:get($map,"sum1")) - (map:get($map,"sum2") * map:get($map,"sum0"))) div (($count * map:get($map,"sum3")) - (map:get($map,"sum0") * map:get($map,"sum0")))
   let $A := (map:get($map,"sum2") - ($B * map:get($map,"sum0"))) div $count
   let $str := "y = " || xs:string(math:floor($A * 1000) div 1000) || " + " || xs:string(math:floor($B * 1000) div 1000) || " ln(x)"
