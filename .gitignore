@@ -5,3 +5,5 @@
 udfs/*/*.zip
 udfs/*/manifest.xml
 *.so
+data/claims.xml
+data/claims.json
