@@ -21,6 +21,20 @@ import module namespace search =
   "http://marklogic.com/appservices/search"
   at "/MarkLogic/appservices/search/search.xqy";
 
+declare function m:path($ctxnode,$tokens,$depth) {
+  let $newctx := $ctxnode/element()[fn:local-name(.) = $tokens[$depth]][1]
+
+  return
+    if ($depth = fn:count($tokens)) then
+      if (fn:empty($tokens[$depth])) then
+        ()
+      else
+        element {fn:QName("",$tokens[$depth])} {xs:string($newctx)}
+    else
+      element {fn:QName("",$tokens[$depth])} {
+        m:path($newctx,$tokens,$depth + 1)
+      }
+};
 
 declare function m:snippet(
    $result as node(),
@@ -28,9 +42,6 @@ declare function m:snippet(
    $options as element(search:transform-results)?
 ) as element(search:snippet)
 {
-  let $_ := xdmp:log($result)
-  let $_ := xdmp:log($ctsquery)
-  let $_ := xdmp:log($options)
   let $default-snippet := search:snippet($result, $ctsquery, $options)
   let $root := fn:doc($result/fn:base-uri(.))/element()
   let $rootjson := fn:doc($result/fn:base-uri(.))/node()
@@ -45,15 +56,25 @@ declare function m:snippet(
         (: TODO replace full thing with just the requested properties :)
       else
         (: Got an XML result :)
-      element {fn:QName(fn:namespace-uri($root),fn:name($root))} {
-        for $child in $root/element()[fn:name(.) = $options/search:extract/search:element/@name]
-
-        (: return ($options/search:extract/search:element,$child) :)
-
+      element {fn:QName("",fn:local-name($root))} {
+        for $name in $options/search:extract/search:element/@name
+        let $namestr := xs:string($name)
+        let $tokens := fn:tokenize($namestr,"/")
         return
-          (: for $elconfig in $options/search:extract/search:element[@name = $child/fn:name(.)]
-          return :)
-              $child
+          if (fn:count($tokens) = 1) then
+            for $child in $root/element()[fn:local-name(.) = $namestr]
+            (: return ($options/search:extract/search:element,$child) :)
+            return
+              (: for $elconfig in $options/search:extract/search:element[@name = $child/fn:local-name(.)]
+              return :)
+              (: $child :)
+              if (fn:empty($namestr)) then
+                ()
+              else
+                element {fn:QName("",$namestr)} {xs:string($child)}
+          else
+            (: xdmp:unpath for now :)
+            m:path($root,$tokens,1)
 
       }
     }
